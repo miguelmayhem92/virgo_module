@@ -4,8 +4,8 @@ with open("virgo_app/README.md", "r") as f:
     long_description = f.read()
 
 setup(
-    name="virgo modules",
-    version="0.0.0",
+    name="virgo_modules",
+    version="0.0.2",
     description="data processing and statistical modeling using stock market data",
     package_dir={"": "virgo_app"},
     packages=find_packages(where="virgo_app"),
