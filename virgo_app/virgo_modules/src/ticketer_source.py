@@ -107,6 +107,49 @@ def data_processing_pipeline(features_base,features_to_drop = False, lag_dict = 
     )
     return pipe
 
+def states_relevance_score(data, default_benchmark_sd = 0.00003, t_threshold = 2):
+    ## legnths
+    cluster_lengths = data.groupby(['hmm_feature','chain_id'],as_index = False).agg(chain_lenght = ('hmm_chain_order','max'))
+    cluster_lengths = cluster_lengths.groupby('hmm_feature').agg(cluster_length_median = ('chain_lenght','median'))
+    ## means
+    def quantile2(x):
+        return x.quantile(0.25)
+    def quantile3(x):
+        return x.quantile(0.75)
+    
+    cluster_returns = data.groupby('hmm_feature').agg(
+        n_uniques = ('chain_id','nunique'),
+        n_obs = ('Date','count'),
+        cluster_ret_q25 = ('chain_return',quantile2),
+        cluster_ret_median = ('chain_return','median'),
+        cluster_ret_q75 = ('chain_return',quantile3),
+    )
+    cluster_returns =  cluster_returns.join(cluster_lengths, how = 'left')
+    cluster_returns['perc_dispute'] = np.where(
+        np.sign(cluster_returns['cluster_ret_q25']) != np.sign(cluster_returns['cluster_ret_q75']),
+        1,0
+    )
+    cluster_returns['iqr'] = cluster_returns.cluster_ret_q75 - cluster_returns.cluster_ret_q25
+    cluster_returns['perc_25'] = abs(cluster_returns.cluster_ret_q25)/cluster_returns['iqr']
+    cluster_returns['perc_75'] = abs(cluster_returns.cluster_ret_q75)/cluster_returns['iqr']
+    cluster_returns['min_perc'] = cluster_returns[['perc_25','perc_75']].min(axis = 1)
+    cluster_returns['min_overlap'] = np.where(cluster_returns['perc_dispute'] == 1,cluster_returns['min_perc'],0)
+    cluster_returns['abs_median'] = abs(cluster_returns['cluster_ret_median'])
+    cluster_returns = cluster_returns.drop(columns = ['perc_25','perc_75','min_perc'])
+    
+    ## relevance or importance
+    # naive aproach
+    cluster_returns['relevance'] =  cluster_returns['abs_median'] + ( 0.5 - cluster_returns['min_overlap'])
+    cluster_returns['t_calc'] = (cluster_returns['cluster_ret_median'] - 0)/(cluster_returns['iqr']/cluster_returns['n_obs'] + default_benchmark_sd/cluster_returns['n_obs'])**(1/2)
+    cluster_returns['abs_t_accpted'] = abs(cluster_returns['t_calc'])
+    cluster_returns['t_accpted'] = abs(cluster_returns['abs_t_accpted']) > t_threshold
+    
+    mean_relevance = cluster_returns['abs_t_accpted'].mean()
+    number_relevant_states = len(cluster_returns[cluster_returns.t_accpted == True])
+
+    return mean_relevance, cluster_returns, number_relevant_states
+
+
 class stock_eda_panel(object):
     
     def __init__(self, stock_code, n_days):
@@ -1255,13 +1298,16 @@ class stock_eda_panel(object):
         self.settings_hmm_states = {'favourable_states':favourable_states}
     ################################################
     
-    def deep_dive_analysis_hmm(self):
+    def deep_dive_analysis_hmm(self, test_data_size, split = 'train'):
+    
+        if split == 'train':
+            df = self.df.iloc[:-test_data_size,:]
+        elif split == 'test':
+            df = self.df.iloc[-test_data_size:,:]
 
-        df = self.df
-        
         ## returns plot
         fig = px.box(df.sort_values('hmm_feature'), y = 'chain_return',x = 'hmm_feature', color = 'hmm_feature', 
-                     height=400, width=1000, title = 'returns chain hmm feature')
+                    height=400, width=1000, title = 'returns chain hmm feature')
         fig.add_shape(type='line',x0=-0.5,y0=0,x1=max(df.hmm_feature)+0.5,y1=0,line=dict(color='grey',width=1),xref='x',yref='y')
         fig.show()
         print('--------------------------------------------------------------')
@@ -1286,6 +1332,7 @@ class stock_eda_panel(object):
         ax.set_ylabel('State From')
         fig.show()
         print('--------------------------------------------------------------')
+        del df
 
     def get_targets(self, steps):
         self.targets = list()
@@ -1512,52 +1559,17 @@ class hmm_feature_selector():
         self.data_train_["chain_id"] = self.data_train_.groupby("breack")["Date"].rank(method="first", ascending=True)
         self.data_train_["chain_id"] = np.where(self.data_train_['breack'] == 1,self.data_train_["chain_id"],np.nan)
         self.data_train_["chain_id"] = self.data_train_["chain_id"].fillna(method='ffill')
-        self.data_train_["chain_order"] = self.data_train_.groupby('chain_id')["Date"].rank(method="first", ascending=True)
+        self.data_train_["hmm_chain_order"] = self.data_train_.groupby('chain_id')["Date"].rank(method="first", ascending=True)
         
         ### returns using the first element in a chain
-        self.data_train_['first'] = np.where(self.data_train_['chain_order'] == 1, self.data_train_['Close'], np.nan)
+        self.data_train_['first'] = np.where(self.data_train_['hmm_chain_order'] == 1, self.data_train_['Close'], np.nan)
         self.data_train_['first'] = self.data_train_.sort_values('Date')['first'].fillna(method='ffill')
-        self.data_train_['Daily_Returns'] = (self.data_train_['Close']/self.data_train_['first'] -1) * 100
+        self.data_train_['chain_return'] = (self.data_train_['Close']/self.data_train_['first'] -1) * 100
         
         self.data_train_ = self.data_train_.drop(columns = ['first'])
         
-        ## legnths
-        self.cluster_lengths = self.data_train_.groupby(['hmm_feature','chain_id'],as_index = False).agg(chain_lenght = ('chain_order','max'))
-        self.cluster_lengths = self.cluster_lengths.groupby('hmm_feature').agg(cluster_length_median = ('chain_lenght','median'))
-        
-        ## means
-        def quantile2(x):
-            return x.quantile(0.25)
-        def quantile3(x):
-            return x.quantile(0.75)
-        
-        self.cluster_returns = self.data_train_.groupby('hmm_feature').agg(
-            n_obs = ('Date','count'),
-            cluster_ret_q25 = ('Daily_Returns',quantile2),
-            cluster_ret_median = ('Daily_Returns','median'),
-            cluster_ret_q75 = ('Daily_Returns',quantile3),
-        )
-        self.cluster_returns =  self.cluster_returns.join(self.cluster_lengths, how = 'left')
-        self.cluster_returns['perc_dispute'] = np.where(
-            np.sign(self.cluster_returns['cluster_ret_q25']) != np.sign(self.cluster_returns['cluster_ret_q75']),
-            1,0
-        )
-        self.cluster_returns['iqr'] = self.cluster_returns.cluster_ret_q75 - self.cluster_returns.cluster_ret_q25
-        self.cluster_returns['perc_25'] = abs(self.cluster_returns.cluster_ret_q25)/self.cluster_returns['iqr']
-        self.cluster_returns['perc_75'] = abs(self.cluster_returns.cluster_ret_q75)/self.cluster_returns['iqr']
-        self.cluster_returns['min_perc'] = self.cluster_returns[['perc_25','perc_75']].min(axis = 1)
-        self.cluster_returns['min_overlap'] = np.where(self.cluster_returns['perc_dispute'] == 1,self.cluster_returns['min_perc'],0)
-        self.cluster_returns['abs_median'] = abs(self.cluster_returns['cluster_ret_median'])
-        self.cluster_returns = self.cluster_returns.drop(columns = ['perc_25','perc_75','min_perc'])
-        
-        ## relevance or importance
-        # naive aproach
-        self.cluster_returns['relevance'] =  self.cluster_returns['abs_median'] + ( 0.5 - self.cluster_returns['min_overlap'])
-        self.cluster_returns['t_calc'] = (self.cluster_returns['cluster_ret_median'] - 0)/(self.cluster_returns['iqr']/self.cluster_returns['n_obs'] + self.default_benchmark_sd/self.cluster_returns['n_obs'])**(1/2)
-        self.cluster_returns['abs_t_accpted'] = abs(self.cluster_returns['t_calc'])
-        self.cluster_returns['t_accpted'] = abs(self.cluster_returns['abs_t_accpted']) > self.t_threshold
-        
-        self.mean_relevance = self.cluster_returns['abs_t_accpted'].mean()
+        mean_relevance, cluster_returns, number_relevant_states = states_relevance_score(self.data_train_)
+        self.mean_relevance = mean_relevance
         
     def execute_selector(self):
         
