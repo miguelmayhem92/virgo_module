@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import seaborn as sns; sns.set()
 import matplotlib.patheffects as path_effects
+from  matplotlib.dates import DateFormatter
 
 import plotly.express as px
 from plotly.subplots import make_subplots
@@ -899,3 +900,44 @@ class produce_plotly_plots:
             fig.show()
         if self.save_path and self.save_aws:
             upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.ticket_name}/'+result_json_name ,input_path = self.save_path+result_json_name)
+
+def plot_hmm_analysis_logger(data_frame,test_data_size, save_path = False, show_plot = True):
+    
+    df = data_frame
+    df_ = df[['Date','hmm_feature','Close',"chain_return"]].sort_values('Date')
+    fig, axs = plt.subplots(1,2,figsize=(10,4))
+    df__ = df_.iloc[:-test_data_size,]
+    sns.boxplot(data=df__, x="hmm_feature", y="chain_return",ax = axs[0]).set_title('train dist')
+    df__ = df_.iloc[-test_data_size:,]
+    sns.boxplot(data=df__ , x="hmm_feature", y="chain_return",ax = axs[1]).set_title('test dist')
+    if save_path:
+        plt.savefig(save_path) 
+    if not show_plot:
+        plt.close()
+
+def plot_hmm_tsanalysis_logger(data_frame, test_data_size,save_path = False, show_plot = True):
+    
+    df = data_frame
+    df_ = df[['Date','hmm_feature','Close',"chain_return"]].sort_values('Date')
+    states = list(df_['hmm_feature'].unique())
+    states.sort()
+    
+    if test_data_size:
+        df__ = df_.iloc[-test_data_size:,]
+        date_limit = pd.Timestamp(str(df__.Date.min().strftime('%Y-%m-%d')))
+    
+    fig, ax1 = plt.subplots(figsize=(10,4))
+    ax1.plot(df_['Date'],df_["Close"])
+    
+    for state in states:
+        df__ = df_[df_.hmm_feature == state]
+        ax1.scatter(df__['Date'],df__["Close"], label = state)
+    formatter = DateFormatter('%Y-%m-%d')
+    if test_data_size:
+        plt.axvline(x=date_limit, color = 'r')
+    fig.legend()
+    fig.autofmt_xdate()
+    if save_path:
+        plt.savefig(save_path) 
+    if not show_plot:
+        plt.close()
