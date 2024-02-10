@@ -404,7 +404,7 @@ def rank_by_return(data, lag_days, top_n = 5):
     
     return result
 
-def get_data(ticker_name:str, ticket_settings:dict, n_days:int = False, hmm_available: object = False) -> object:
+def get_data(ticker_name:str, ticket_settings:dict, n_days:int = False, hmm_available: object = False, data_window:str = '5y') -> object:
     """
     this functions runs the stock_eda_panel
     it is shared between train model and predictions
@@ -417,7 +417,7 @@ def get_data(ticker_name:str, ticket_settings:dict, n_days:int = False, hmm_avai
     returns: stock eda panel
     """
 
-    object_stock = stock_eda_panel(ticker_name , n_days )
+    object_stock = stock_eda_panel(ticker_name , n_days, data_window)
     object_stock.get_data()
 
     # computing features if they exists in the ticketr settings

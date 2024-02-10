@@ -152,12 +152,13 @@ def states_relevance_score(data, default_benchmark_sd = 0.00003, t_threshold = 2
 
 class stock_eda_panel(object):
     
-    def __init__(self, stock_code, n_days):
+    def __init__(self, stock_code, n_days, data_window = '5y'):
         self.stock_code = stock_code
         self.n_days = n_days
         self.today = datetime.date.today()
         self.features = list()
         self.signals = list()
+        self.data_window = data_window
         
     def augmented_dickey_fuller_statistics(self,time_series, label):
         result = adfuller(time_series.dropna().values)
@@ -168,8 +169,7 @@ class stock_eda_panel(object):
         begin_date_str = begin_date.strftime('%Y-%m-%d')
 
         stock = yf.Ticker(self.stock_code)
-        #df = stock.history(period="max")
-        df = stock.history(period='5y')
+        df = stock.history(period=self.data_window)
         
         df = df.sort_values('Date')
         df.reset_index(inplace=True)
@@ -562,8 +562,7 @@ class stock_eda_panel(object):
         begin_date_str = begin_date.strftime('%Y-%m-%d')
 
         stock = yf.Ticker(self.pair_symbol)
-        #df = stock.history(period="max")
-        df = stock.history(period='5y')
+        df = stock.history(period=self.data_window)
         df = df.sort_values('Date')
         df.reset_index(inplace=True)
         df['Date'] = pd.to_datetime(df['Date'], format='mixed',utc=True).dt.date
