@@ -177,7 +177,12 @@ class stock_eda_panel(object):
         df['Date'] = pd.to_datetime(df['Date'])
         
         df = df[df.Date >= begin_date_str ]
-        self.settings_general = {'n_days':self.n_days, 'begin_date':begin_date_str}
+        self.settings_general = {
+            'n_days':self.n_days,
+            'begin_date':begin_date_str,
+            'data_window': self.data_window,
+            'execution_date': self.today.strftime('%Y-%m-%d')
+        }
         self.df = df
         
         ### cleaning volume
@@ -226,8 +231,6 @@ class stock_eda_panel(object):
         df["lower"] = df['Close_roll_mean'] - df["Close_roll_std"]*2
 
         df = df[df.Date >= begin_date_str ]
-        self.settings_general = {'n_days':self.n_days, 'begin_date':begin_date_str}
-        self.df = df
 
         fig = make_subplots(rows=1, cols=1,vertical_spacing = 0.1,shared_xaxes=True,
                            subplot_titles=(
