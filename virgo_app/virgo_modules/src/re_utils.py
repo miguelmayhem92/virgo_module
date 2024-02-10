@@ -578,6 +578,7 @@ def call_ml_objects(stock_code, client, call_models = False):
                 ticker_name= stock_code, 
                 ticket_settings = ticket_settings,
                 n_days = ticket_settings['settings']['general']['n_days'],
+                data_window = ticket_settings['settings']['general'].get('data_window','5y'),
                 hmm_available = hmm_model
             )
     ### applying kalman

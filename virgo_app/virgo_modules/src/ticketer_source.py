@@ -1855,10 +1855,11 @@ def iterate_signal_analyser(test_data_size,feature_name, days_list, arguments_to
     return best_result
     
 class analyse_index(stock_eda_panel):
-    def __init__(self, index, asset, n_obs, lag, show_plot = True, save_path = False, save_aws = False):
+    def __init__(self, index, asset, n_obs, lag, data_window = '5y', show_plot = True, save_path = False, save_aws = False):
         self.index = index
         self.asset = asset
         self.n_obs = n_obs
+        self.data_window = data_window
         self.lag = lag
         
         self.show_plot = show_plot
@@ -1867,12 +1868,12 @@ class analyse_index(stock_eda_panel):
         
     def process_data(self):
         
-        index = stock_eda_panel(self.index, self.n_obs)
+        index = stock_eda_panel(self.index, self.n_obs, self.data_window)
         index.get_data()
         index.df['shift'] = index.df.Close.shift(self.lag)
         index.df['index_return'] = index.df.Close/index.df['shift'] - 1
 
-        asset =  stock_eda_panel(self.asset, self.n_obs)
+        asset =  stock_eda_panel(self.asset, self.n_obs, self.data_window)
         asset.get_data()
         asset.df['shift'] = asset.df.Close.shift(self.lag)
         asset.df['asset_return'] = asset.df.Close/asset.df['shift'] - 1
