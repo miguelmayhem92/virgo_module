@@ -423,97 +423,47 @@ def get_data(ticker_name:str, ticket_settings:dict, n_days:int = False, hmm_avai
     # computing features if they exists in the ticketr settings
 
     if 'volatility' in ticket_settings['settings']:
-        object_stock.volatility_analysis(
-            lags = ticket_settings['settings']['volatility']['lags'],
-            trad_days =  ticket_settings['settings']['volatility']['trad_days'], 
-            window_log_return =  ticket_settings['settings']['volatility']['window_log_return']
-        )
+        parameters = ticket_settings['settings']['volatility']
+        object_stock.volatility_analysis(**parameters)
         
     if 'outlier' in ticket_settings['settings']:
-        object_stock.outlier_plot(ticket_settings['settings']['outlier']['zlim']) 
+        parameters = ticket_settings['settings']['outlier']
+        object_stock.outlier_plot(**parameters) 
 
-    if 'spread_ma' in ticket_settings['settings']:
-        object_stock.spread_MA(
-            ma1 = ticket_settings['settings']['spread_ma']['ma1'],
-            ma2 = ticket_settings['settings']['spread_ma']['ma2'],
-            limit = ticket_settings['settings']['spread_ma']['limit']
-        )
-    if 'relative_spread_ma' in ticket_settings['settings']:
-        object_stock.relative_spread_MA(
-            ma1=ticket_settings['settings']['relative_spread_ma']['ma1'],
-            ma2=ticket_settings['settings']['relative_spread_ma']['ma2'],
-            threshold = ticket_settings['settings']['relative_spread_ma']['threshold'],
-        )
+    ## for now this is hard coded
+    feature_list = ['spread_ma','relative_spread_ma','pair_feature','count_features','bidirect_count_features','price_range','relative_price_range','rsi_feature',
+                        'rsi_feature_v2', 'days_features','days_features_v2', 'volume_feature','smooth_volume', 'roc_feature', 'stoch_feature', 'stochastic_feature',
+                        'william_feature', 'vortex_feature', 'pair_index_feature'
+                        'hmm','target_lasts']
+    feature_map = {
+        'spread_ma':'spread_MA',
+        'relative_spread_ma':'relative_spread_MA',
+        'pair_feature':'pair_feature',
+        'count_features':'get_count_feature',
+        'bidirect_count_features':'bidirect_count_feature',
+        'price_range':'get_range_feature',
+        'relative_price_range':'get_relative_range_feature',
+        'rsi_feature':'rsi_feature',
+        'rsi_feature_v2':'rsi_feature_improved',
+        'days_features':'days_features',
+        'days_features_v2':'days_features_bands', 
+        'volume_features':'analysis_volume',  ## this may crash but deprecated
+        'smooth_volume':'analysis_smooth_volume',
+        'roc_feature':'roc_feature',
+        'stoch_feature':'stoch_feature',
+        'stochastic_feature':'stochastic_feature',
+        'william_feature':'william_feature',
+        'vortex_feature':'vortex_feature',
+        'pair_index_feature':'pair_index_feature'
+    }
+    
+    for feature in feature_list:
 
-    if 'pair_feature' in ticket_settings['settings']:
-        object_stock.pair_feature(pair_symbol = ticket_settings['settings']['pair_feature']['pair_symbol'])
-        object_stock.produce_pair_score_plot(
-            window = ticket_settings['settings']['pair_feature']['window'],
-            z_threshold = ticket_settings['settings']['pair_feature']['z_threshold']
-        )  
-        
-    if 'count_features' in ticket_settings['settings']:
-        object_stock.get_count_feature(
-            rolling_window = ticket_settings['settings']['count_features']['rolling_window'],
-            threshold = ticket_settings['settings']['count_features']['threshold']
-        )
-    
-    if 'bidirect_count_features' in ticket_settings['settings']:
-        object_stock.bidirect_count_feature(
-            rolling_window = ticket_settings['settings']['bidirect_count_features']['rolling_window'],
-            threshold = ticket_settings['settings']['bidirect_count_features']['threshold']
-        )
+        if feature in ticket_settings['settings']:
+            parameters = ticket_settings['settings'][feature]
+            method_to_use = feature_map.get(feature)
+            getattr(object_stock, method_to_use)(**parameters)
 
-    if 'price_range' in ticket_settings['settings']:
-        object_stock.get_range_feature(
-            window = ticket_settings['settings']['price_range']['window'], 
-            up_threshold = ticket_settings['settings']['price_range']['up_threshold'], 
-            low_threshold = ticket_settings['settings']['price_range']['low_threshold']
-            )
-    
-    if 'relative_price_range' in ticket_settings['settings']:
-        object_stock.get_relative_range_feature(
-            window = ticket_settings['settings']['relative_price_range']['window'],
-            threshold = ticket_settings['settings']['relative_price_range']['threshold']
-        )
-    
-    if 'rsi_feature' in ticket_settings['settings']:
-        object_stock.rsi_feature(
-            window = ticket_settings['settings']['rsi_feature']['window'], 
-            lag_rsi_ret = ticket_settings['settings']['rsi_feature']['lag_rsi_ret'], 
-            threshold = ticket_settings['settings']['rsi_feature']['threshold']
-        )
-    
-    if 'rsi_feature_v2' in ticket_settings['settings']:
-        object_stock.rsi_feature_improved(
-            window = ticket_settings['settings']['rsi_feature_v2']['window'],
-            threshold = ticket_settings['settings']['rsi_feature_v2']['threshold']
-        )
-
-    if 'days_features' in ticket_settings['settings']:
-        object_stock.days_features(
-            window_day = ticket_settings['settings']['days_features']['window_day'], 
-            limit = ticket_settings['settings']['days_features']['limit']
-        )
-    
-    if 'days_features_v2' in ticket_settings['settings']:
-        object_stock.days_features_bands(
-            window = ticket_settings['settings']['days_features_v2']['window'],
-            threshold = ticket_settings['settings']['days_features_v2']['threshold']
-        )
-    
-    if 'volume_features' in ticket_settings['settings']:
-        object_stock.analysis_volume(
-            lag_volume = ticket_settings['settings']['volume_features']['lag_volume'], 
-            threshold  = ticket_settings['settings']['volume_features']['threshold'],
-            window = ticket_settings['settings']['volume_features']['window']
-        )
-    
-    if 'smooth_volume' in ticket_settings['settings']:
-        object_stock.analysis_smooth_volume(
-            window = ticket_settings['settings']['smooth_volume']['window'],
-            threshold = ticket_settings['settings']['smooth_volume']['threshold']
-        )
 
     if hmm_available:
         object_stock.cluster_hmm_analysis( n_clusters = None, 

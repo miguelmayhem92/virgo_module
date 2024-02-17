@@ -1496,7 +1496,7 @@ class stock_eda_panel(object):
         feature_list = ['spread_ma','relative_spread_ma','pair_feature','count_features','bidirect_count_features','price_range','relative_price_range','rsi_feature',
                         'rsi_feature_v2', 'days_features','days_features_v2', 'volume_feature','smooth_volume', 'roc_feature', 'stoch_feature', 'stochastic_feature',
                         'william_feature', 'vortex_feature', 'pair_index_feature'
-                        'hmm','target_lasts',]
+                        'hmm','target_lasts']
 
         for feature in feature_list:
             try:
