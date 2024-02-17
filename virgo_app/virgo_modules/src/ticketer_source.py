@@ -1503,11 +1503,6 @@ class stock_eda_panel(object):
                 self.settings['settings'][feature] = getattr(self, f'settings_{feature}')
             except:
                 pass
-            try:
-                ## because of volume_features which is deprecated
-                self.settings['settings'][feature+'s'] = getattr(self, f'settings_{feature}')
-            except:
-                pass
         
         try:
             self.settings['settings']['strategies'] = {

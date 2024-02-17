@@ -431,10 +431,6 @@ def get_data(ticker_name:str, ticket_settings:dict, n_days:int = False, hmm_avai
         object_stock.outlier_plot(**parameters) 
 
     ## for now this is hard coded
-    feature_list = ['spread_ma','relative_spread_ma','pair_feature','count_features','bidirect_count_features','price_range','relative_price_range','rsi_feature',
-                        'rsi_feature_v2', 'days_features','days_features_v2', 'volume_feature','smooth_volume', 'roc_feature', 'stoch_feature', 'stochastic_feature',
-                        'william_feature', 'vortex_feature', 'pair_index_feature'
-                        'hmm','target_lasts']
     feature_map = {
         'spread_ma':'spread_MA',
         'relative_spread_ma':'relative_spread_MA',
@@ -447,7 +443,7 @@ def get_data(ticker_name:str, ticket_settings:dict, n_days:int = False, hmm_avai
         'rsi_feature_v2':'rsi_feature_improved',
         'days_features':'days_features',
         'days_features_v2':'days_features_bands', 
-        'volume_features':'analysis_volume',  ## this may crash but deprecated
+        'volume_feature':'analysis_volume',  ## this may crash but deprecated
         'smooth_volume':'analysis_smooth_volume',
         'roc_feature':'roc_feature',
         'stoch_feature':'stoch_feature',
@@ -457,7 +453,7 @@ def get_data(ticker_name:str, ticket_settings:dict, n_days:int = False, hmm_avai
         'pair_index_feature':'pair_index_feature'
     }
     
-    for feature in feature_list:
+    for feature in feature_map.keys():
 
         if feature in ticket_settings['settings']:
             parameters = ticket_settings['settings'][feature]
