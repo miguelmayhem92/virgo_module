@@ -26,7 +26,8 @@ import statsmodels.api as sm
 
 import scipy.stats as stats
 
-from ta.momentum import RSIIndicator
+from ta.momentum import RSIIndicator, ROCIndicator, StochRSIIndicator,StochasticOscillator, WilliamsRIndicator
+from ta.trend import VortexIndicator
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -456,6 +457,26 @@ class stock_eda_panel(object):
 
         self.df[f'signal_low_{feature_name}'] = np.where( (self.df[f'norm_{feature_name}'] < self.df[f'lower_{feature_name}'] ), 1, 0)
         self.df[f'signal_up_{feature_name}'] = np.where( (self.df[f'norm_{feature_name}'] > self.df[f'upper_{feature_name}'] ), 1, 0)
+
+    def signal_plotter(self, feature_name):
+        fig, axs = plt.subplots(1, 3,figsize=(17,5))
+        
+        axs[0].plot(self.df[f'upper_{feature_name}'],color = 'grey', linestyle='--')
+        axs[0].plot(self.df[f'lower_{feature_name}'],color = 'grey', linestyle='--')
+        axs[0].plot(self.df[f'norm_{feature_name}'])
+        
+        plot_acf(self.df[feature_name].dropna(),lags=25,ax = axs[1])
+        axs[1].set_title(f'acf {feature_name}')
+        
+        plot_pacf(self.df[feature_name].dropna(),lags=25,ax = axs[2])
+        axs[2].set_title(f'pacf {feature_name}')
+        
+        fig.show()
+
+    def log_features_standard(self, feature_name):
+        self.features.append(feature_name)
+        self.signals.append(f'signal_up_{feature_name}')
+        self.signals.append(f'signal_low_{feature_name}')
     
     #######################
     #### to be deprecated ####
@@ -538,26 +559,12 @@ class stock_eda_panel(object):
 
         print('--------------------------------------------------------------------')
         if save_features:
-            self.features.append(feature_name)
-            self.signals.append(f'signal_low_{feature_name}')
-            self.signals.append(f'signal_up_{feature_name}')
+            self.log_features_standard(feature_name)
             self.settings_relative_spread_ma = {'ma1':ma1, 'ma2':ma2, 'threshold':threshold}  
 
         if plot:
 
-            fig, axs = plt.subplots(1, 3,figsize=(21,4))
-
-            axs[0].plot(self.df['Date'],self.df[f'norm_{feature_name}'])
-            axs[0].plot(self.df['Date'],self.df[f'upper_{feature_name}'], linestyle='--')
-            axs[0].plot(self.df['Date'],self.df[f'lower_{feature_name}'], linestyle='--')
-            axs[0].set_title('rel_MA_spread series')
-
-            plot_acf(self.df[feature_name].dropna(),lags=25, ax=axs[1])
-            axs[1].set_title('acf rel_MA_spread series')
-
-            plot_pacf(self.df[feature_name].dropna(),lags=25, ax=axs[2])
-            axs[2].set_title('acf rel_MA_spread series')
-            plt.show()
+            self.signal_plotter(feature_name)
     
     def pair_feature(self, pair_symbol, plot = False):
         self.pair_symbol = pair_symbol
@@ -624,9 +631,7 @@ class stock_eda_panel(object):
         self.df['signal_up_pair_z_score'] = np.where(self.df['pair_z_score'] > z_threshold, 1, 0)
         
         if save_features:
-            self.features.append('pair_z_score')
-            self.signals.append('signal_low_pair_z_score')
-            self.signals.append('signal_up_pair_z_score')
+            self.log_features_standard('pair_z_score')
             self.settings_pair_feature = {'pair_symbol':self.pair_symbol,'window':window, 'z_threshold':z_threshold}  
             
         if plot:
@@ -703,9 +708,7 @@ class stock_eda_panel(object):
         self.compute_clip_bands(feature_name,threshold)
 
         if save_features:
-            self.features.append(feature_name)
-            self.signals.append(f'signal_up_{feature_name}')
-            self.signals.append(f'signal_low_{feature_name}')
+            self.log_features_standard(feature_name)
             self.settings_bidirect_count_features = {'rolling_window':rolling_window, 'threshold':threshold}  
 
         if plot:
@@ -770,9 +773,7 @@ class stock_eda_panel(object):
         self.df[f'signal_low_{feature_name}'] = np.where(self.df[f'norm_{feature_name}'] < self.df[f'low_bound_norm_{feature_name}'],1,0 )
 
         if save_features:
-            self.features.append(feature_name)
-            self.signals.append(f'signal_up_{feature_name}')
-            self.signals.append(f'signal_low_{feature_name}')
+            self.log_features_standard(feature_name)
             self.settings_relative_price_range = {'window':window, 'threshold':threshold} 
 
         if plot:
@@ -829,25 +830,11 @@ class stock_eda_panel(object):
         self.compute_clip_bands(feature_name,threshold)
 
         if save_features:
-            self.features.append(feature_name)
-            self.signals.append(f'signal_up_{feature_name}')
-            self.signals.append(f'signal_low_{feature_name}')
+            self.log_features_standard(feature_name)
             self.settings_rsi_feature_v2 = {'window':window, 'threshold':threshold}
 
         if plot:
-            fig, axs = plt.subplots(1, 3,figsize=(17,5))
-
-            axs[0].plot(self.df[f'upper_{feature_name}'],color = 'grey', linestyle='--')
-            axs[0].plot(self.df[f'lower_{feature_name}'],color = 'grey', linestyle='--')
-            axs[0].plot(self.df[f'norm_{feature_name}'])
-
-            plot_acf(self.df['RSI'].dropna(),lags=25,ax = axs[1])
-            axs[1].set_title('acf RSI')
-
-            plot_pacf(self.df['RSI'].dropna(),lags=25,ax = axs[2])
-            axs[2].set_title('pacf RSI')
-
-            fig.show()
+            self.signal_plotter(feature_name)
             
     #######################
     #### to be deprecated ####
@@ -907,25 +894,11 @@ class stock_eda_panel(object):
 
         if save_features:
 
-            self.features.append(feature_name)
-            self.signals.append(f'signal_up_{feature_name}')
-            self.signals.append(f'signal_low_{feature_name}')
+            self.log_features_standard(feature_name)
             self.settings_days_features_v2 = {'window':window, 'threshold':threshold}
 
         if plot:
-            fig, axs = plt.subplots(1, 3,figsize=(17,5))
-
-            axs[0].plot(self.df[f'norm_{feature_name}']) 
-            axs[0].plot(self.df[f'upper_{feature_name}'], linestyle='--')
-            axs[0].plot(self.df[f'lower_{feature_name}'], linestyle='--')
-
-            plot_acf(self.df[f'norm_{feature_name}'].dropna(),lags=25,ax = axs[1])
-            axs[1].set_title('acf day feature')
-
-            plot_pacf(self.df[f'norm_{feature_name}'].dropna(),lags=25,ax = axs[2])
-            axs[2].set_title('pacf day feature')
-
-            fig.show()
+            self.signal_plotter(feature_name)
             
     #######################
     #### to be deprecated ####
@@ -998,9 +971,7 @@ class stock_eda_panel(object):
         self.df[f'signal_up_{feature_name}'] = np.where( (self.df[f'z_{feature_name}'] > threshold ), 1, 0)
 
         if save_features:
-            self.features.append(feature_name)
-            self.signals.append(f'signal_up_{feature_name}')
-            self.signals.append(f'signal_low_{feature_name}')
+            self.log_features_standard(feature_name)
             self.settings_smooth_volume = {'window':window, 'threshold':threshold}
         if plot:
             fig, axs = plt.subplots(2, 2,figsize=(11,6))
@@ -1027,6 +998,124 @@ class stock_eda_panel(object):
             axs[1].set_title(f'z_{feature_name}')
 
             plt.show()
+
+    def roc_feature(self, window, threshold, plot = False, save_features = False):
+        feature_name = 'ROC'
+        roc = ROCIndicator(close = self.df['Close'], window = window).roc()
+        self.df[feature_name] = roc 
+        self.compute_clip_bands(feature_name,threshold)
+
+        if save_features:
+            self.log_features_standard(feature_name)
+            self.settings_roc_feature = {'window':window, 'threshold':threshold}
+        if plot:
+            self.signal_plotter(feature_name)
+    
+    def stoch_feature(self, window, smooth1, smooth2, threshold, plot = False, save_features = False):
+        feature_name = 'STOCH'
+        stoch = StochRSIIndicator(close = self.df['Close'], window = window, smooth1=smooth1, smooth2=smooth2).stochrsi()
+        self.df[feature_name] = stoch
+        self.compute_clip_bands(feature_name,threshold)
+
+        if save_features:
+            self.log_features_standard(feature_name)
+            self.settings_stoch_feature = {'window':window, 'smooth1':smooth1, 'smooth2':smooth2, 'threshold':threshold}
+        if plot:
+            self.signal_plotter(feature_name)
+
+    def stochastic_feature(self, window, smooth, threshold, plot = False, save_features = False):
+        feature_name = 'STOCHOSC'
+        stochast = StochasticOscillator(close = self.df['Close'], high = self.df['High'], low = self.df['Low'], window = window,smooth_window=smooth).stoch()
+        self.df[feature_name] = stochast
+        self.compute_clip_bands(feature_name,threshold)
+
+        if save_features:
+            self.log_features_standard(feature_name)
+            self.settings_stochastic_feature = {'window':window, 'smooth':smooth,'threshold':threshold}
+        if plot:
+            self.signal_plotter(feature_name)
+
+    def william_feature(self, lbp, threshold, plot = False, save_features = False):
+        feature_name = 'WILL'
+        will = WilliamsRIndicator(close = self.df['Close'], high = self.df['High'], low = self.df['Low'], lbp = lbp).williams_r() 
+        self.df[feature_name] = will
+        self.compute_clip_bands(feature_name,threshold)
+
+        if save_features:
+            self.log_features_standard(feature_name)
+            self.settings_william_feature = {'lbp':lbp,'threshold':threshold}
+        if plot:
+            self.signal_plotter(feature_name)
+
+    def vortex_feature(self, window, threshold, plot = False, save_features = False):
+        feature_name = 'VORTEX'
+        vortex = VortexIndicator(close = self.df['Close'], high = self.df['High'], low = self.df['Low'], window = window).vortex_indicator_diff()
+        self.df[feature_name] = vortex
+        self.compute_clip_bands(feature_name,threshold)
+
+        if save_features:
+            self.log_features_standard(feature_name)
+            self.settings_vortex_feature = {'window':window, 'threshold':threshold}
+        if plot:
+            self.signal_plotter(feature_name)
+
+    def pair_index_feature(self, pair_symbol, feature_name, window, threshold, plot = False, save_features = False):
+        self.pair_index = pair_symbol
+        begin_date = self.today - relativedelta(days = self.n_days)
+        begin_date_str = begin_date.strftime('%Y-%m-%d')
+        
+        stock = yf.Ticker(self.pair_index)
+        df = stock.history(period=self.data_window)
+        df = df.sort_values('Date')
+        df.reset_index(inplace=True)
+        df['Date'] = pd.to_datetime(df['Date'], format='mixed',utc=True).dt.date
+        df['Date'] = pd.to_datetime(df['Date'])
+        df = df[df.Date >= begin_date_str ]
+        self.pair_index_df = df
+        
+        #### converting the same index ####
+        dates_vector = self.df.Date.to_frame()
+        self.pair_index_df = dates_vector.merge(self.pair_index_df, on ='Date',how = 'left')
+        self.pair_index_df = self.pair_index_df.fillna(method = 'bfill')
+        self.pair_index_df = self.pair_index_df.fillna(method = 'ffill')
+        
+        self.df[feature_name] = ROCIndicator(close = self.pair_index_df['Close'], window = window).roc()
+
+        ########
+        self.compute_clip_bands(feature_name,threshold)
+
+        if save_features:
+            self.log_features_standard(feature_name)
+            self.settings_pair_index_feature = {feature_name:{'pair_symbol':pair_symbol, 'feature_name':feature_name, 'window':window,'threshold':threshold}}
+        if plot:
+            self.signal_plotter(feature_name)
+
+    def produce_order_features(self, feature_name, save_features = False):
+
+        signal_feature_name = f'discrete_signal_{feature_name}'
+        order_feature_name = f'order_signal_{feature_name}'
+        
+        self.df[signal_feature_name] = np.where(
+            self.df[f'signal_up_{feature_name}'] == 1,1,
+            np.where(
+                self.df[f'signal_low_{feature_name}'] == 1,-1,0
+            )
+        )
+
+        ## indexing chains
+        self.df[f'lag_{signal_feature_name}'] = self.df[signal_feature_name].shift(1)
+        self.df['breack'] = np.where(self.df[f'lag_{signal_feature_name}'] != self.df[signal_feature_name],1,0)
+        self.df["chain_id"] = self.df.groupby("breack")["Date"].rank(method="first", ascending=True)
+        self.df["chain_id"] = np.where(self.df['breack'] == 1,self.df["chain_id"],np.nan)
+        self.df["chain_id"] = self.df["chain_id"].fillna(method='ffill')
+        self.df[order_feature_name] = self.df.groupby('chain_id')["Date"].rank(method="first", ascending=True)
+        self.df[order_feature_name] = self.df[order_feature_name]*self.df[signal_feature_name]
+        self.df = self.df.drop(columns = [f'lag_{signal_feature_name}', 'breack', "chain_id"])
+        
+        ## saving features
+        if save_features:
+            self.signals.append(signal_feature_name)
+            self.signals.append(order_feature_name)
             
     def create_hmm_derived_features(self, lag_returns):
         
@@ -1402,69 +1491,24 @@ class stock_eda_panel(object):
             self.settings['model_type'] = model_type
             self.settings['target'] = list(set(self.target))
             self.settings['targets'] = target_list
-            
-        try:
-            self.settings['settings']['spread_ma'] = self.settings_spread_ma ##to be deprecated
-        except:
-            pass
-        try:
-            self.settings['settings']['relative_spread_ma'] = self.settings_relative_spread_ma
-        except:
-            pass
-        try:
-            self.settings['settings']['pair_feature'] = self.settings_pair_feature 
-        except:
-            pass
-        try:
-            self.settings['settings']['count_features'] = self.settings_count_features  ##to be deprecated
-        except:
-            pass
-        try:
-            self.settings['settings']['bidirect_count_features'] = self.settings_bidirect_count_features
-        except:
-            pass
-        try:
-            self.settings['settings']['price_range'] = self.settings_price_range  ##to be deprecated
-        except:
-            pass
-        try:
-            self.settings['settings']['relative_price_range'] = self.settings_relative_price_range
-        except:
-            pass
-        try:
-            self.settings['settings']['rsi_feature'] = self.settings_rsi_feature   ##to be deprecated
-        except:
-            pass
-        try:
-            self.settings['settings']['rsi_feature_v2'] = self.settings_rsi_feature_v2
-        except:
-            pass
-        try:
-            self.settings['settings']['days_features'] = self.settings_days_features  ##to be deprecated
-        except:
-            pass
-        try:
-            self.settings['settings']['days_features_v2'] = self.settings_days_features_v2
-        except:
-            pass
         
-        try:
-            self.settings['settings']['volume_features'] = self.settings_volume_feature  ##to be deprecated
-        except:
-            pass
-        ##here
-        try:
-            self.settings['settings']['smooth_volume'] = self.settings_smooth_volume  ##to be deprecated
-        except:
-            pass
-        try:
-            self.settings['settings']['hmm'] = self.settings_hmm
-        except:
-            pass
-        try:
-            self.settings['settings']['target_lasts'] = self.settings_target_lasts
-        except:
-            pass
+        ## for now this is hard coded
+        feature_list = ['spread_ma','relative_spread_ma','pair_feature','count_features','bidirect_count_features','price_range','relative_price_range','rsi_feature',
+                        'rsi_feature_v2', 'days_features','days_features_v2', 'volume_feature','smooth_volume', 'roc_feature', 'stoch_feature', 'stochastic_feature',
+                        'william_feature', 'vortex_feature', 'pair_index_feature'
+                        'hmm','target_lasts',]
+
+        for feature in feature_list:
+            try:
+                self.settings['settings'][feature] = getattr(self, f'settings_{feature}')
+            except:
+                pass
+            try:
+                ## because of volume_features which is deprecated
+                self.settings['settings'][feature+'s'] = getattr(self, f'settings_{feature}')
+            except:
+                pass
+        
         try:
             self.settings['settings']['strategies'] = {
                 'best_strategy':self.best_strategy,
