@@ -450,15 +450,51 @@ def get_data(ticker_name:str, ticket_settings:dict, n_days:int = False, hmm_avai
         'stochastic_feature':'stochastic_feature',
         'william_feature':'william_feature',
         'vortex_feature':'vortex_feature',
-        'pair_index_feature':'pair_index_feature'
+        'pair_index_feature':'pair_index_feature' # this has a diff structure! 
     }
-    
+    exceptions = ['pair_feature','pair_index_feature']
+    ### standar feature
     for feature in feature_map.keys():
-
-        if feature in ticket_settings['settings']:
+        if (feature in ticket_settings['settings']) and (feature not in exceptions):
             parameters = ticket_settings['settings'][feature]
             method_to_use = feature_map.get(feature)
             getattr(object_stock, method_to_use)(**parameters)
+
+    ## special features
+    if 'pair_feature' in ticket_settings['settings']:
+        object_stock.pair_feature(pair_symbol = ticket_settings['settings']['pair_feature']['pair_symbol'])
+        object_stock.produce_pair_score_plot(
+            window = ticket_settings['settings']['pair_feature']['window'],
+            z_threshold = ticket_settings['settings']['pair_feature']['z_threshold']
+        ) 
+
+    if 'pair_index_feature' in ticket_settings['settings']:
+        for group_feature in ticket_settings['settings']['pair_index_feature']:
+            key = list(group_feature.keys())[0]
+            parameters = group_feature[key]
+            method_to_use = feature_map.get('pair_index_feature')
+            getattr(object_stock, method_to_use)(**parameters)
+    
+    if 'target_lasts' in ticket_settings['settings']:
+
+        type_target = ticket_settings['settings']['target_lasts']['type']
+        params = {k:v for k,v in ticket_settings['settings']['target_lasts'].items() if k != 'type'}
+        
+        if 'classification' == type_target:
+            object_stock.get_categorical_targets(**params)
+
+        elif 'regression' == type_target:
+            object_stock.get_targets(**params)
+
+        del params
+        del type_target
+
+    ## searching discrete signals and orders
+    discrete_signals = [x for x in ticket_settings['signals'] if 'discrete' in x]
+    discrete_features = [x.replace('discrete_signal_', '')  for x in discrete_signals]
+    if len(discrete_features) > 0:
+        for feature_name in discrete_features:
+            object_stock.produce_order_features(feature_name)
 
 
     if hmm_available:
@@ -467,10 +503,11 @@ def get_data(ticker_name:str, ticket_settings:dict, n_days:int = False, hmm_avai
                                     test_data_size = None,
                                     seed = None, model = hmm_available)
     else:
-        object_stock.cluster_hmm_analysis( n_clusters = ticket_settings['settings']['hmm']['n_clusters'],
-                                        features_hmm = ticket_settings['settings']['hmm']['features_hmm'],
-                                        test_data_size = ticket_settings['settings']['hmm']['test_data_size'],
-                                        seed = ticket_settings['settings']['hmm']['seed'])
+        if 'hmm' in ticket_settings['settings']:
+            object_stock.cluster_hmm_analysis( n_clusters = ticket_settings['settings']['hmm']['n_clusters'],
+                                            features_hmm = ticket_settings['settings']['hmm']['features_hmm'],
+                                            test_data_size = ticket_settings['settings']['hmm']['test_data_size'],
+                                            seed = ticket_settings['settings']['hmm']['seed'])
     
     return object_stock
 

@@ -1086,7 +1086,16 @@ class stock_eda_panel(object):
 
         if save_features:
             self.log_features_standard(feature_name)
-            self.settings_pair_index_feature = {feature_name:{'pair_symbol':pair_symbol, 'feature_name':feature_name, 'window':window,'threshold':threshold}}
+            parameters = {feature_name:{'pair_symbol':pair_symbol, 'feature_name':feature_name, 'window':window,'threshold':threshold}}
+            try: 
+                len(self.settings_pair_index_feature)
+                print('existing')
+                self.settings_pair_index_feature.append(parameters)
+            except:
+                print('creation')
+                self.settings_pair_index_feature = list()
+                self.settings_pair_index_feature.append(parameters)
+
         if plot:
             self.signal_plotter(feature_name)
 
@@ -1436,7 +1445,7 @@ class stock_eda_panel(object):
 
         self.df[f'mean_target'] = self.df[columns].mean(axis=1)
         self.target.append(f'mean_target')
-        self.settings_target_lasts = {'steps':steps}
+        self.settings_target_lasts = {'steps':steps, 'type':'regression'}
         
     def get_categorical_targets(self, horizon, flor_loss, top_gain):
     
@@ -1468,7 +1477,7 @@ class stock_eda_panel(object):
         self.targets.append('target_up')
         self.targets.append('target_down')
 
-        self.settings_target_lasts = {'horizon':horizon, 'flor_loss':flor_loss, 'top_gain':top_gain}
+        self.settings_target_lasts = {'horizon':horizon, 'flor_loss':flor_loss, 'top_gain':top_gain, 'type': 'classification'}
 
     def get_configurations(self,test_data_size =250, val_data_size = 250, model_type = False):
         
@@ -1495,14 +1504,17 @@ class stock_eda_panel(object):
         ## for now this is hard coded
         feature_list = ['spread_ma','relative_spread_ma','pair_feature','count_features','bidirect_count_features','price_range','relative_price_range','rsi_feature',
                         'rsi_feature_v2', 'days_features','days_features_v2', 'volume_feature','smooth_volume', 'roc_feature', 'stoch_feature', 'stochastic_feature',
-                        'william_feature', 'vortex_feature', 'pair_index_feature'
-                        'hmm','target_lasts']
+                        'william_feature', 'vortex_feature', 'pair_index_feature','hmm']
 
         for feature in feature_list:
             try:
                 self.settings['settings'][feature] = getattr(self, f'settings_{feature}')
             except:
                 pass
+        try:
+            self.settings['settings']['target_lasts'] = self.settings_target_lasts
+        except:
+            pass
         
         try:
             self.settings['settings']['strategies'] = {
