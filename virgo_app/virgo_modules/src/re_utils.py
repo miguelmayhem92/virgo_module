@@ -432,16 +432,16 @@ def get_data(ticker_name:str, ticket_settings:dict, n_days:int = False, hmm_avai
 
     ## for now this is hard coded
     feature_map = {
-        'spread_ma':'spread_MA',
+        'spread_ma':'spread_MA', # deprecated
         'relative_spread_ma':'relative_spread_MA',
         'pair_feature':'pair_feature',
-        'count_features':'get_count_feature',
+        'count_features':'get_count_feature', # deprecated
         'bidirect_count_features':'bidirect_count_feature',
-        'price_range':'get_range_feature',
+        'price_range':'get_range_feature', # deprecated
         'relative_price_range':'get_relative_range_feature',
-        'rsi_feature':'rsi_feature',
+        'rsi_feature':'rsi_feature', # deprecated
         'rsi_feature_v2':'rsi_feature_improved',
-        'days_features':'days_features',
+        'days_features':'days_features', # deprecated
         'days_features_v2':'days_features_bands', 
         'volume_feature':'analysis_volume',  ## this may crash but deprecated
         'smooth_volume':'analysis_smooth_volume',
