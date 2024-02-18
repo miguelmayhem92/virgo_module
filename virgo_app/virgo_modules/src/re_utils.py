@@ -496,7 +496,6 @@ def get_data(ticker_name:str, ticket_settings:dict, n_days:int = False, hmm_avai
         for feature_name in discrete_features:
             object_stock.produce_order_features(feature_name)
 
-
     if hmm_available:
         object_stock.cluster_hmm_analysis( n_clusters = None, 
                                     features_hmm = None,
