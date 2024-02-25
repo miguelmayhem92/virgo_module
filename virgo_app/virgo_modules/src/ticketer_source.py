@@ -1059,11 +1059,14 @@ class stock_eda_panel(object):
         if plot:
             self.signal_plotter(feature_name)
 
-    def pair_index_feature(self, pair_symbol, feature_name, window, threshold, plot = False, save_features = False):
+    def pair_index_feature(self, pair_symbol, feature_label, window, threshold, plot = False, save_features = False):
         self.pair_index = pair_symbol
         begin_date = self.today - relativedelta(days = self.n_days)
         begin_date_str = begin_date.strftime('%Y-%m-%d')
         
+        if feature_label in self.df.columns:
+            self.df = self.df.drop(columns = [feature_label])
+
         stock = yf.Ticker(self.pair_index)
         df = stock.history(period=self.data_window)
         df = df.sort_values('Date')
@@ -1079,16 +1082,16 @@ class stock_eda_panel(object):
         self.pair_index_df = self.pair_index_df.fillna(method = 'bfill')
         self.pair_index_df = self.pair_index_df.fillna(method = 'ffill')
         
-        self.pair_index_df[feature_name] = ROCIndicator(close = self.pair_index_df['Close'], window = window).roc()
-        df_to_merge = self.pair_index_df[['Date',feature_name]]
+        self.pair_index_df[feature_label] = ROCIndicator(close = self.pair_index_df['Close'], window = window).roc()
+        df_to_merge = self.pair_index_df[['Date',feature_label]]
         self.df = self.df.merge(df_to_merge, on ='Date',how = 'left')
 
         ########
-        self.compute_clip_bands(feature_name,threshold)
+        self.compute_clip_bands(feature_label,threshold)
 
         if save_features:
-            self.log_features_standard(feature_name)
-            parameters = {feature_name:{'pair_symbol':pair_symbol, 'feature_name':feature_name, 'window':window,'threshold':threshold}}
+            self.log_features_standard(feature_label)
+            parameters = {feature_label:{'pair_symbol':pair_symbol, 'feature_label':feature_label, 'window':window,'threshold':threshold}}
             try: 
                 len(self.settings_pair_index_feature)
                 print('existing')
@@ -1099,7 +1102,7 @@ class stock_eda_panel(object):
                 self.settings_pair_index_feature.append(parameters)
 
         if plot:
-            self.signal_plotter(feature_name)
+            self.signal_plotter(feature_label)
 
     def produce_order_features(self, feature_name, save_features = False):
 
