@@ -1079,7 +1079,9 @@ class stock_eda_panel(object):
         self.pair_index_df = self.pair_index_df.fillna(method = 'bfill')
         self.pair_index_df = self.pair_index_df.fillna(method = 'ffill')
         
-        self.df[feature_name] = ROCIndicator(close = self.pair_index_df['Close'], window = window).roc()
+        self.pair_index_df[feature_name] = ROCIndicator(close = self.pair_index_df['Close'], window = window).roc()
+        df_to_merge = self.pair_index_df[['Date',feature_name]]
+        self.df = self.df.merge(df_to_merge, on ='Date',how = 'left')
 
         ########
         self.compute_clip_bands(feature_name,threshold)
