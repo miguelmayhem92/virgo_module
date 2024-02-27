@@ -45,13 +45,26 @@ from itertools import combinations, chain
 from feature_engine.encoding import OneHotEncoder
 from feature_engine.selection import DropFeatures, DropCorrelatedFeatures
 from feature_engine.timeseries.forecasting import LagFeatures
-from feature_engine.imputation import DropMissingData, MeanMedianImputer
-from feature_engine.discretisation import EqualFrequencyDiscretiser, EqualWidthDiscretiser
+from feature_engine.imputation import MeanMedianImputer
+from feature_engine.discretisation import EqualWidthDiscretiser
 
 from .aws_utils import upload_file_to_aws
-import pickle
 
 import logging
+
+class VirgoWinsorizerFeature(BaseEstimator, TransformerMixin):
+    def __init__(self, feature_configs):
+        self.feature_configs = feature_configs
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X, y=None):
+        for feature in self.feature_configs:
+            lower = self.feature_configs[feature]['min']
+            upper = self.feature_configs[feature]['max']
+            X[feature] = np.where( lower > X[feature], lower, X[feature])
+            X[feature] = np.where( upper < X[feature], upper, X[feature])
+        return X
 
 class FeatureSelector(BaseEstimator, TransformerMixin):
     def __init__(self, columns):
