@@ -9,7 +9,7 @@ from feature_engine.imputation import  MeanMedianImputer
 from virgo_modules.src.ticketer_source import FeatureSelector
 from feature_engine.discretisation import EqualWidthDiscretiser
 
-from .ticketer_source import VirgoWinsorizerFeature
+from .ticketer_source import VirgoWinsorizerFeature, InverseHyperbolicSine
 
 class produce_model_wrapper:
     def __init__(self,data):
@@ -91,9 +91,11 @@ def eval_metrics(pipeline, X, y, type_data, model_name):
     print(recall_score(y,preds, average=None))
 
 
-def data_processing_pipeline_classifier(features_base,features_to_drop = False, winsorizer_conf = False, discretize_columns = False,
-                                         bins_discretize = 10, correlation = 0.85, fillna = True,
-                                        pipeline_order = 'selector//winzorizer//discretizer//median_inputer//drop//correlation'):
+def data_processing_pipeline_classifier(
+        features_base,features_to_drop = False, winsorizer_conf = False, discretize_columns = False,
+        bins_discretize = 10, correlation = 0.85, fillna = True,
+        invhypervolsin_features = False,
+        pipeline_order = 'selector//winzorizer//discretizer//median_inputer//drop//correlation'):
 
 
     select_pipe = [('selector', FeatureSelector(features_base))] if features_base else []
@@ -102,6 +104,7 @@ def data_processing_pipeline_classifier(features_base,features_to_drop = False, 
     discretize = [('discretize',EqualWidthDiscretiser(discretize_columns, bins = bins_discretize ))] if discretize_columns else []
     drop_corr = [('drop_corr', DropCorrelatedFeatures(threshold=correlation, method = 'spearman'))] if correlation else []
     median_imputer_pipe = [('median_imputer', MeanMedianImputer())] if fillna else []
+    invhypersin_pipe = [('invhypervolsin scaler', InverseHyperbolicSine(features = invhypervolsin_features))] if invhypervolsin_features else []
 
     pipe_dictionary = {
         'selector': select_pipe,
@@ -110,6 +113,7 @@ def data_processing_pipeline_classifier(features_base,features_to_drop = False, 
         'discretizer': discretize,
         'correlation': drop_corr,
         'median_inputer':median_imputer_pipe,
+        'arcsinh_scaler': invhypersin_pipe,
     }
 
     pipeline_steps = pipeline_order.split('//')
@@ -121,14 +125,7 @@ def data_processing_pipeline_classifier(features_base,features_to_drop = False, 
     pipeline_args = [ pipe_dictionary[step] for step in pipeline_steps]
     pipeline_args = list(itertools.chain.from_iterable(pipeline_args))
     pipe = Pipeline(pipeline_args)
-    # pipe = Pipeline(
-    #     select_pipe + \
-    #     winzorizer_pipe + \
-    #     discretize + \
-    #     median_imputer_pipe + \
-    #     drop_pipe + \
-    #     drop_corr
-    # )
+
     return pipe
 
 

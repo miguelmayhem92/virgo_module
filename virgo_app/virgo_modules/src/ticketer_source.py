@@ -52,6 +52,19 @@ from .aws_utils import upload_file_to_aws
 
 import logging
 
+class InverseHyperbolicSine(BaseEstimator, TransformerMixin):
+    def __init__(self, features, prefix = ''):
+        self.features = features
+        self.prefix = prefix
+
+    def fit(self, X, y=None):
+        return self
+    
+    def transform(self, X, y=None):
+        for feature in self.features:
+            X[f'{self.prefix}{feature}'] = np.arcsinh(X[feature])
+        return X
+
 class VirgoWinsorizerFeature(BaseEstimator, TransformerMixin):
     def __init__(self, feature_configs):
         self.feature_configs = feature_configs
