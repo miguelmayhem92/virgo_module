@@ -335,8 +335,17 @@ def ranking(data, weighted_features, top = 5, window = 5):
     
     return top_up, top_low
 
-def produce_dashboard(data, columns , ticket_list, show_plot = True, nrows = 150,save_name = False, save_path = False, save_aws = False):
-    
+def produce_dashboard(data, columns , ticket_list, show_plot = True, nrows = 150,save_name = False, save_path = False, save_aws = False, aws_credential = False):
+    """
+    data: pandas df
+    columns: list 
+    ticket_list: list asset list
+    nrows: int
+    show_plot: bool
+    save_path: str local path for saving e.g r'C:/path/to/the/file/'
+    save_aws: str remote key in s3 bucket path e.g. 'path/to/file/'
+    aws_credentials: dict
+    """
     top = len(ticket_list)
     columns = ['history'] + columns
     subtitles = list()
@@ -381,8 +390,10 @@ def produce_dashboard(data, columns , ticket_list, show_plot = True, nrows = 150
         fig.write_json(save_path+save_name+'.json')
         
     if save_name and save_path and save_aws:
-        upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'multi_dashboards/'+save_name+'.json',input_path = save_path+save_name+'.json')
-    
+        # upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'multi_dashboards/'+save_name+'.json',input_path = save_path+save_name+'.json')
+        upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = save_aws + save_name + '.json', input_path = save_path + save_name + '.json', aws_credentials = aws_credential)
+        
+
 def rank_by_return(data, lag_days, top_n = 5):
     
     data = data.sort_values(['Ticket','Date'], ascending=[False,False]).reset_index(drop = True)
@@ -573,15 +584,26 @@ def call_ml_objects(stock_code, client, call_models = False):
     return objects
 
 class produce_plotly_plots:
-    def __init__(self,ticket_name, data_frame,settings, save_path = False, save_aws = False, show_plot= True):
+    def __init__(self,ticket_name, data_frame,settings, save_path = False, save_aws = False, show_plot= True, aws_credentials = False):
+        """
+        ticket_name: str asset name
+        data_frame: pandas df
+        settings: dict
+        show_plot: bool
+        save_path: str local path for saving e.g r'C:/path/to/the/file/'
+        save_aws: str remote key in s3 bucket path e.g. 'path/to/file/'
+        aws_credentials: dict
+        """
+        
         self.ticket_name = ticket_name
         self.data_frame = data_frame
         self.settings = settings
         self.save_path = save_path
         self.save_aws = save_aws
         self.show_plot = show_plot
-        
-    def plot_asset_signals(self, feature_list,spread_column, date_intervals = False,):
+        self.aws_credentials = aws_credentials
+
+    def plot_asset_signals(self, feature_list,spread_column, date_intervals = False):
         
         result_json_name = 'panel_signals.json'
         df = self.data_frame
@@ -650,7 +672,8 @@ class produce_plotly_plots:
         if self.show_plot:
             fig.show()
         if self.save_path and self.save_aws:
-            upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.ticket_name}/'+result_json_name ,input_path = self.save_path+result_json_name)
+            # upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.ticket_name}/'+result_json_name ,input_path = self.save_path+result_json_name)
+            upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = self.save_aws + result_json_name, input_path = self.save_path + result_json_name, aws_credentials = self.aws_credentials)
 
     def explore_states_ts(self):
         result_json_name = 'ts_hmm.json'
@@ -695,7 +718,8 @@ class produce_plotly_plots:
         if self.show_plot:
             fig.show()
         if self.save_path and self.save_aws:
-            upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.ticket_name}/'+result_json_name ,input_path = self.save_path+result_json_name)
+            # upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.ticket_name}/'+result_json_name ,input_path = self.save_path+result_json_name)
+            upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = self.save_aws + result_json_name, input_path = self.save_path + result_json_name, aws_credentials = self.aws_credentials)
 
     def plot_hmm_analysis(self,settings, hmm_model, date_intervals = False, model = False):
         result_json_name = 'hmm_analysis.json'
@@ -810,9 +834,12 @@ class produce_plotly_plots:
                 json.dump(messages, outfile)
                 
         if self.save_path and self.save_aws:
-            upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.ticket_name}/'+result_json_name ,input_path = self.save_path+result_json_name)
-            upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.ticket_name}/'+'market_message.json',input_path = self.save_path+"market_message.json")
+            # upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.ticket_name}/'+result_json_name ,input_path = self.save_path+result_json_name)
+            # upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.ticket_name}/'+'market_message.json',input_path = self.save_path+"market_message.json")
             
+            upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = self.save_aws + result_json_name, input_path = self.save_path + result_json_name, aws_credentials = self.aws_credentials)
+            upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = self.save_aws + 'market_message.json', input_path = self.save_path + 'market_message.json', aws_credentials = self.aws_credentials)
+
     def produce_forecasting_plot(self,predictions):
         result_json_name = 'forecast_plot.json'
         hmm_n_clust = self.settings['settings']['hmm']['n_clusters']
@@ -882,7 +909,8 @@ class produce_plotly_plots:
         if self.show_plot:
             fig.show()
         if self.save_path and self.save_aws:
-            upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.ticket_name}/'+result_json_name ,input_path = self.save_path+result_json_name)
+            # upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.ticket_name}/'+result_json_name ,input_path = self.save_path+result_json_name)
+            upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = self.save_aws + result_json_name, input_path = self.save_path + result_json_name, aws_credentials = self.aws_credentials)
 
 def plot_hmm_analysis_logger(data_frame,test_data_size, save_path = False, show_plot = True):
     
@@ -924,3 +952,136 @@ def plot_hmm_tsanalysis_logger(data_frame, test_data_size,save_path = False, sho
         plt.savefig(save_path) 
     if not show_plot:
         plt.close()
+
+def extract_data_traintest(object_stock,features_to_search,configs, target_configs, window_analysis = False, drop_nan= True):
+
+    object_stock.get_data() 
+    object_stock.volatility_analysis(**configs['volatility']['config_params'], plot = False, save_features = False)
+    target_params_up = target_configs['params_up']
+    target_params_down = target_configs['params_down']
+
+    for feature_name in features_to_search:
+        initial_columns = object_stock.df.columns
+        arguments_to_use = configs[feature_name]['config_params']
+        method_to_use = configs[feature_name]['method']
+        getattr(object_stock, method_to_use)(**arguments_to_use, plot = False, save_features = False)
+        object_stock.produce_order_features(feature_name)
+    # geting targets
+    object_stock.get_categorical_targets(**target_params_up)
+    object_stock.df = object_stock.df.drop(columns = ['target_down']).rename(columns = {'target_up':'target_up_save'})
+    object_stock.get_categorical_targets(**target_params_down)
+    object_stock.df = object_stock.df.drop(columns = ['target_up']).rename(columns = {'target_up_save':'target_up'})
+    
+    if drop_nan:
+        object_stock.df = object_stock.df.dropna()
+    if window_analysis:
+        object_stock.df = object_stock.df.iloc[-window_analysis:,:]
+        
+    return object_stock
+
+def produce_simple_ts_from_model(stock_code, configs, n_days = 2000 , window_scope = '5y'):
+
+    ## getting data
+    volat_args = {'lags': 3, 'trad_days': 15, 'window_log_return': 10}
+    
+    object_stock = stock_eda_panel(stock_code , n_days, window_scope)
+    object_stock.get_data() 
+    object_stock.volatility_analysis(**volat_args, plot = False, save_features = False)
+    features = list(configs.keys())
+    for feature_name in features:
+        arguments_to_use = configs[feature_name]['config_params']
+        method_to_use = configs[feature_name]['method']
+        getattr(object_stock, method_to_use)(**arguments_to_use, plot = False, save_features = False)
+
+    ## ploting
+    df = object_stock.df
+    feature_rows = len(features)
+    rows_subplot = feature_rows + 1
+    height_plot = rows_subplot * 400
+
+    fig = make_subplots(
+        rows= rows_subplot, cols=1,
+        vertical_spacing = 0.02, horizontal_spacing = 0.02, shared_xaxes=True,
+        subplot_titles = [f'{stock_code} price history'] + features 
+    )
+
+    ## initial plot:
+    row_i = 1
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['Close'],showlegend= False, mode='lines', marker_color = 'blue'),col = 1, row = row_i)
+    ### signal plots
+    for row_i, feature in enumerate(features,start=row_i+1):
+        feature_2 = 'nan'
+        signal_up_list = [f'signal_up_{feature}', f'signal_up_{feature_2}']  
+        signal_low_list = [f'signal_low_{feature}', f'signal_low_{feature_2}']
+        norm_list = [f'norm_{feature}', f'z_{feature}', feature]
+        # signal
+        for norm_feat in norm_list:
+            if norm_feat in df.columns:
+                fig.add_trace(go.Scatter(x=df['Date'], y=df[norm_feat],showlegend= False, mode='lines', marker_color = 'grey'),col = 1, row = row_i)
+                break
+        for norm_feat in norm_list:
+            if norm_feat in df.columns:
+                fig.add_trace(go.Scatter(x=df['Date'], y=np.where(df[norm_feat] > 0, df[norm_feat], np.nan),showlegend= False, mode='markers', marker_color = 'green',opacity = 0.3),col = 1, row = row_i)
+                fig.add_trace(go.Scatter(x=df['Date'], y=np.where(df[norm_feat] <= 0, df[norm_feat], np.nan),showlegend= False, mode='markers', marker_color = 'red',opacity = 0.3),col = 1, row = row_i)
+                break
+        for signal_up in signal_up_list:
+            if signal_up in df.columns:
+                fig.add_trace(go.Scatter(x=df['Date'], y=np.where(df[signal_up] == 1, df[norm_feat], np.nan),showlegend= False, mode='markers', marker_color = 'green'),col = 1, row = row_i)
+
+        for signal_low in signal_low_list:
+            if signal_low in df.columns:
+                fig.add_trace(go.Scatter(x=df['Date'], y=np.where(df[signal_low] == 1, df[norm_feat], np.nan),showlegend= False, mode='markers', marker_color = 'red'),col = 1, row = row_i)
+                
+    fig.update_layout(height=height_plot, width=1600, title_text = f'asset plot and signals: {stock_code}')
+
+    del object_stock, df
+    
+    return fig
+
+def save_edge_model(data, save_path = False, save_aws = False, show_result = False, aws_credentials = False):
+    """
+    data: pandas df
+    model_name: str
+    ticket_name: str name of the asset
+    save_path: str local path for saving e.g r'C:/path/to/the/file/'
+    save_aws: str remote key in s3 bucket path e.g. 'path/to/file/'
+    show_results: bool
+    aws_credentials: dict
+    
+    return a print of the dictionary
+    """
+    today = datetime.datetime.today().strftime('%Y-%m-%d')
+    
+    curent_edge = data[['Date','proba_target_down','proba_target_up']].iloc[-1,:]
+    curent_edge['Date'] = curent_edge['Date'].strftime('%Y-%m-%d')
+    curent_edge = curent_edge.to_dict()
+    curent_edge['ExecutionDate'] = today
+    
+    if save_path:
+        result_json_name = 'current_edge.json'
+        with open(save_path+result_json_name, "w") as outfile: 
+            json.dump(curent_edge, outfile)
+        
+    if save_path and save_aws:
+        upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = save_aws + result_json_name, input_path = save_path+result_json_name, aws_credentials = aws_credentials)
+        
+    if show_result:
+        print(curent_edge)
+
+def create_feature_edge(model, data,feature_name, threshold, target_variables):
+
+    label_prediction = ['proba_'+x for x in target_variables]
+    predictions = model.predict_proba(data)
+    predictions = pd.DataFrame(predictions, columns = label_prediction, index = data.index)
+    
+    result_df = pd.concat([data, predictions], axis=1)
+
+    for pred_col in label_prediction:
+        type_use = 'low'
+        if 'down' in pred_col:
+            type_use = 'up' 
+            
+        result_df[f'signal_{type_use}_{feature_name}'] = np.where(result_df[pred_col] >= threshold,1,0)
+        result_df[f'acc_{type_use}_{feature_name}'] = np.where(result_df[f'signal_{type_use}_{feature_name}'] == result_df[pred_col.replace('proba_','')],1,0)
+    
+    return result_df
