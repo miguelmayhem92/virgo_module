@@ -1688,6 +1688,13 @@ class hmm_feature_selector():
 class signal_analyser_object:
     
     def __init__(self, data,symbol_name, show_plot = True, save_path = False, save_aws = False):
+        """
+        data: pandas df
+        symbol_name: str name of the asset
+        show_plot: bool
+        save_path: str local path for saving e.g r'C:/path/to/the/file/'
+        save_aws: str remote key in s3 bucket path e.g. 'path/to/file/'
+        """
         self.data = data.copy()
         self.ticket_name = symbol_name
         self.show_plot = show_plot
@@ -1805,7 +1812,8 @@ class signal_analyser_object:
             # pickle.dump(axs, open(self.save_path+result_plot_name, 'wb'))
 
         if self.save_path and self.save_aws:
-            upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.ticket_name}/'+result_plot_name,input_path = self.save_path+result_plot_name)
+            # upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.ticket_name}/'+result_plot_name, input_path = self.save_path+result_plot_name)
+            upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = self.save_aws + result_plot_name, input_path = self.save_path + result_plot_name)
         if not self.show_plot:
             plt.close()
         del df
@@ -1898,9 +1906,12 @@ class signal_analyser_object:
                 json.dump(messages, outfile)
                 
         if self.save_path and self.save_aws:
-            upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.ticket_name}/'+result_json_name ,input_path = self.save_path+result_json_name)
-            upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.ticket_name}/'+result_plot_name,input_path = self.save_path+result_plot_name)
+            # upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.ticket_name}/'+result_json_name ,input_path = self.save_path+result_json_name)
+            # upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.ticket_name}/'+result_plot_name,input_path = self.save_path+result_plot_name)
             
+            upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = self.save_aws + result_json_name, input_path = self.save_path + result_json_name)
+            upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = self.save_aws + result_plot_name, input_path = self.save_path + result_plot_name)
+
         if not self.show_plot:
             plt.close()
             
@@ -1938,6 +1949,19 @@ def iterate_signal_analyser(test_data_size,feature_name, days_list, arguments_to
     
 class analyse_index(stock_eda_panel):
     def __init__(self, index, asset, n_obs, lag, data_window = '5y', show_plot = True, save_path = False, save_aws = False):
+
+        """
+        data: pandas df
+        index: str name of the index
+        asset: str name of the asset
+        n_obs: int
+        lag: int
+        data_window: str eg 5y 10y 15y
+        show_plot: bool
+        save_path: str local path for saving e.g r'C:/path/to/the/file/'
+        save_aws: str remote key in s3 bucket path e.g. 'path/to/file/'
+        """
+         
         self.index = index
         self.asset = asset
         self.n_obs = n_obs
@@ -2018,7 +2042,8 @@ class analyse_index(stock_eda_panel):
             figure.savefig(self.save_path+result_plot_name)
 
         if self.save_path and self.save_aws:
-            upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.asset}/'+result_plot_name,input_path = self.save_path+result_plot_name)
+            # upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.asset}/'+result_plot_name,input_path = self.save_path+result_plot_name)
+            upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = self.save_aws + result_plot_name, input_path = self.save_path + result_plot_name)
         if not self.show_plot:
             plt.close()
         
@@ -2048,6 +2073,7 @@ class evaluate_markets(analyse_index):
         self.stock_code = stock_code
         self.indexes = indexes
     def evaluate_best_market_fit(self,sample_size, offset,lag= 3, n_obs = 3500, verbose = False, plot_best = False):
+
         results_dicts = dict()
         for index in self.indexes:
             betex = analyse_index(index = index,asset = self.stock_code,n_obs = n_obs, lag = lag)
@@ -2072,7 +2098,13 @@ class evaluate_markets(analyse_index):
         self.best_result = best_result
         
 def get_relevant_beta(data_market, ticket_name,  show_plot = True, save_path = False, save_aws = False):
-    
+    """
+        data_market: pandas df
+        ticket_name: str name of the asset
+        show_plot: bool
+        save_path: str local path for saving e.g r'C:/path/to/the/file/'
+        save_aws: str remote key in s3 bucket path e.g. 'path/to/file/'
+        """
     all_betas = data_market[data_market.asset == ticket_name].sort_values('general_r', ascending = False)
     all_betas['gen_r2'] = all_betas.general_r ** 2
     all_betas['sampl_r2'] = all_betas.sample_r ** 2
@@ -2085,6 +2117,6 @@ def get_relevant_beta(data_market, ticket_name,  show_plot = True, save_path = F
         selection.to_csv(save_path+result_plot_name)
 
     if save_path and save_aws:
-        upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{ticket_name}/'+result_plot_name,input_path = save_path+result_plot_name)
-        
+        # upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{ticket_name}/'+result_plot_name,input_path = save_path+result_plot_name)
+        upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = save_aws + result_plot_name, input_path = save_path + result_plot_name)
     return selection
