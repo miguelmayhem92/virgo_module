@@ -1880,8 +1880,8 @@ class signal_analyser_object:
         message2 = f'returns strategy {strat_rets}%'
         
         messages = {
-            'benchmark':message1,
-            'strategy':message2
+            'benchmark return':message1,
+            'strategy return':message2
         }
         if self.show_plot:
             print('----------------------------')

@@ -808,9 +808,9 @@ class produce_plotly_plots:
         message3 = 'report date: ' +str(date_execution)
 
         messages = {
-            'current_state':message1,
-            'current_step_state': message2,
-            'report_date':message3,
+            'current state':message1,
+            'current step in state': message2,
+            'execution date':message3,
         }
         
         if self.show_plot:
@@ -1052,7 +1052,11 @@ def save_edge_model(data, save_path = False, save_aws = False, show_result = Fal
     """
     today = datetime.datetime.today().strftime('%Y-%m-%d')
     
-    curent_edge = data[['Date','proba_target_down','proba_target_up']].iloc[-1,:]
+    curent_edge = (
+        data[['Date','proba_target_down','proba_target_up']]
+        .rename(columns = {'proba_target_down':'probability go down', 'proba_target_up':'probability go up'})
+        .iloc[-1,:]
+    )
     curent_edge['Date'] = curent_edge['Date'].strftime('%Y-%m-%d')
     curent_edge = curent_edge.to_dict()
     curent_edge['ExecutionDate'] = today
