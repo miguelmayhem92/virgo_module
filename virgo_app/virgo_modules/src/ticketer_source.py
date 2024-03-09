@@ -197,7 +197,7 @@ class stock_eda_panel(object):
 
         stock = yf.Ticker(self.stock_code)
         df = stock.history(period=self.data_window)
-        
+
         df = df.sort_values('Date')
         df.reset_index(inplace=True)
         df['Date'] = pd.to_datetime(df['Date'], format='mixed',utc=True).dt.date
@@ -1687,7 +1687,7 @@ class hmm_feature_selector():
         
 class signal_analyser_object:
     
-    def __init__(self, data,symbol_name, show_plot = True, save_path = False, save_aws = False, aws_credentials = False):
+    def __init__(self, data,symbol_name, show_plot = True, save_path = False, save_aws = False, aws_credentials = False, return_fig = False):
         """
         data: pandas df
         symbol_name: str name of the asset
@@ -1695,6 +1695,7 @@ class signal_analyser_object:
         save_path: str local path for saving e.g r'C:/path/to/the/file/'
         save_aws: str remote key in s3 bucket path e.g. 'path/to/file/'
         aws_credentials: dict
+        return_fig: boolean return the image function as result
         """
         self.data = data.copy()
         self.ticket_name = symbol_name
@@ -1702,6 +1703,7 @@ class signal_analyser_object:
         self.save_path = save_path
         self.save_aws = save_aws
         self.aws_credentials = aws_credentials
+        self.return_fig = return_fig
 
     def signal_analyser(self, test_size, feature_name, days_list, threshold = 0.05,verbose = False, signal_position = False):
         data = self.data
@@ -1818,7 +1820,11 @@ class signal_analyser_object:
             upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = self.save_aws + result_plot_name, input_path = self.save_path + result_plot_name, aws_credentials = self.aws_credentials)
         if not self.show_plot:
             plt.close()
+
         del df
+
+        if self.return_fig:
+            return fig
         
     def create_backtest_signal(self,days_strategy, test_size, feature_name):
         asset_1 = 'Close'
@@ -1918,6 +1924,9 @@ class signal_analyser_object:
             plt.close()
             
         del df1,df2,dft
+
+        if self.return_fig:
+            return fig
         
 def execute_signal_analyser(test_data_size, feature_name, days_list, configuration, method, object_stock, signal_analyser_object, plot = False, backtest= False):
     method(**configuration)
