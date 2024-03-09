@@ -1034,9 +1034,9 @@ def produce_simple_ts_from_model(stock_code, configs, n_days = 2000 , window_sco
                 
     fig.update_layout(height=height_plot, width=1600, title_text = f'asset plot and signals: {stock_code}')
 
-    del object_stock, df
+    del object_stock
     
-    return fig
+    return fig, df
 
 def save_edge_model(data, save_path = False, save_aws = False, show_result = False, aws_credentials = False):
     """

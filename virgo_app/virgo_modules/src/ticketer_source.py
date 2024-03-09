@@ -1926,7 +1926,7 @@ class signal_analyser_object:
         del df1,df2,dft
 
         if self.return_fig:
-            return fig
+            return fig, messages
         
 def execute_signal_analyser(test_data_size, feature_name, days_list, configuration, method, object_stock, signal_analyser_object, plot = False, backtest= False):
     method(**configuration)
