@@ -584,7 +584,7 @@ def call_ml_objects(stock_code, client, call_models = False):
     return objects
 
 class produce_plotly_plots:
-    def __init__(self,ticket_name, data_frame,settings, save_path = False, save_aws = False, show_plot= True, aws_credentials = False):
+    def __init__(self,ticket_name, data_frame,settings, save_path = False, save_aws = False, show_plot= True, aws_credentials = False, return_figs = False):
         """
         ticket_name: str asset name
         data_frame: pandas df
@@ -602,6 +602,7 @@ class produce_plotly_plots:
         self.save_aws = save_aws
         self.show_plot = show_plot
         self.aws_credentials = aws_credentials
+        self.return_figs = return_figs
 
     def plot_asset_signals(self, feature_list,spread_column, date_intervals = False):
         
@@ -674,7 +675,9 @@ class produce_plotly_plots:
         if self.save_path and self.save_aws:
             # upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.ticket_name}/'+result_json_name ,input_path = self.save_path+result_json_name)
             upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = self.save_aws + result_json_name, input_path = self.save_path + result_json_name, aws_credentials = self.aws_credentials)
-
+        if self.return_figs:
+            return fig
+        
     def explore_states_ts(self):
         result_json_name = 'ts_hmm.json'
         df = self.data_frame
@@ -720,8 +723,10 @@ class produce_plotly_plots:
         if self.save_path and self.save_aws:
             # upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.ticket_name}/'+result_json_name ,input_path = self.save_path+result_json_name)
             upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = self.save_aws + result_json_name, input_path = self.save_path + result_json_name, aws_credentials = self.aws_credentials)
-
-    def plot_hmm_analysis(self,settings, hmm_model, date_intervals = False, model = False):
+        if self.return_figs:
+            return fig
+        
+    def plot_hmm_analysis(self,settings, t_matrix, model = False):
         result_json_name = 'hmm_analysis.json'
         df = self.data_frame
         hmm_n_clust = self.settings['settings']['hmm']['n_clusters']
@@ -744,7 +749,7 @@ class produce_plotly_plots:
 
         ### transition probabilities
         row_i = 1
-        t_matrix = (hmm_model._model_impl['hmm'].transmat_)*100
+        # t_matrix = (hmm_model._model_impl['hmm'].transmat_)*100
         fig.add_trace(go.Heatmap(z = t_matrix, text = np.round(t_matrix,2),texttemplate="%{text}",coloraxis='coloraxis'),row=row_i, col=2)
         fig.update_xaxes(title_text='State To', row=row_i, col=2)
         fig.update_yaxes(title_text='State From', row=row_i, col=2)
@@ -839,7 +844,9 @@ class produce_plotly_plots:
             
             upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = self.save_aws + result_json_name, input_path = self.save_path + result_json_name, aws_credentials = self.aws_credentials)
             upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = self.save_aws + 'market_message.json', input_path = self.save_path + 'market_message.json', aws_credentials = self.aws_credentials)
-
+        
+        if self.return_figs:
+            return fig, messages
     def produce_forecasting_plot(self,predictions):
         result_json_name = 'forecast_plot.json'
         hmm_n_clust = self.settings['settings']['hmm']['n_clusters']
