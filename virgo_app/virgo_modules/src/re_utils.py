@@ -810,7 +810,7 @@ class produce_plotly_plots:
         current_state = df.iloc[-1,:].hmm_feature
         message1 = 'current state: ' +  str(current_state)
         message2 = 'current step in state: ' + str(current_step)
-        message3 = 'report date: ' +str(date_execution)
+        message3 = str(date_execution)
 
         messages = {
             'current state':message1,
