@@ -1217,7 +1217,20 @@ class stock_eda_panel(object):
             ### first feature: the hidden state
             self.df['hmm_feature'] = self.model_hmm.predict(self.df)
             self.create_hmm_derived_features(lag_returns = lag_returns_state)
-        
+
+            ## completion
+
+            hidden_states = pipeline_hmm.predict(data_train)
+            map_ = {i:f'state_{i}' for i in range(n_clusters)}
+            color_map = { i:DEFAULT_PLOTLY_COLORS[i] for i in range(n_clusters)}
+
+            data_train['HMM'] = hidden_states
+            data_train['HMM_state'] =  data_train['HMM'].map(map_)
+
+            hidden_states = pipeline_hmm.predict(data_test)
+            data_test['HMM'] = hidden_states
+            data_test['HMM_state'] =  data_test['HMM'].map(map_)
+            
         if model:
             self.df['hmm_feature'] = model.predict(self.df)
             self.create_hmm_derived_features(lag_returns = lag_returns_state)
@@ -1229,13 +1242,6 @@ class stock_eda_panel(object):
 
         if plot:
 
-            hidden_states = pipeline_hmm.predict(data_train)
-            map_ = {i:f'state_{i}' for i in range(n_clusters)}
-            color_map = { i:DEFAULT_PLOTLY_COLORS[i] for i in range(n_clusters)}
-
-            data_train['HMM'] = hidden_states
-            data_train['HMM_state'] =  data_train['HMM'].map(map_)
-
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=data_train['Date'], y=data_train['Close'], mode='lines',name = 'history', marker_color = 'grey'))
             for state in data_train['HMM_state'].unique():
@@ -1246,10 +1252,6 @@ class stock_eda_panel(object):
             fig.show()
 
             print('---------------------------------------------------------')
-        
-            hidden_states = pipeline_hmm.predict(data_test)
-            data_test['HMM'] = hidden_states
-            data_test['HMM_state'] =  data_test['HMM'].map(map_)
 
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=data_test['Date'], y=data_test['Close'], mode='lines',name = 'history', marker_color = 'grey'))
