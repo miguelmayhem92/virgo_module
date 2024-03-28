@@ -89,6 +89,14 @@ class FeatureSelector(BaseEstimator, TransformerMixin):
     def transform(self, X, y=None):
         return X[self.columns]
     
+def sharpe_ratio(return_series):
+    N = 255 # Trading days in the year (change to 365 for crypto)
+    rf = 0.005 # Half a percent risk free rare
+    mean = return_series.mean() * N -rf
+    sigma = return_series.std() * np.sqrt(N)
+    sharpe = round(mean / sigma, 3)
+    return sharpe
+
 class signal_combiner(BaseEstimator, TransformerMixin):
     def __init__(self, columns, drop = True, prefix_up = 'signal_up_', prefix_low = 'signal_low_'):
         self.columns = columns
@@ -422,7 +430,6 @@ class stock_eda_panel(object):
     
     def outlier_plot(self, zlim, plot = False, save_features = False):
         
-        print('---------------------------------------------------------------------------')
         mean = self.df.log_return.mean()
         std = self.df.log_return.std()
         self.df['z_log_return'] = (self.df.log_return - mean)/std
@@ -433,26 +440,41 @@ class stock_eda_panel(object):
         self.df['up_outlier'] = zlim*self.df['z_std_log_return'] + mean_
         self.df['low_outlier'] = -zlim*self.df['z_std_log_return'] + mean_
 
-        self.df['signal_low_outlier'] = np.where( (self.df['z_log_return'] < self.df['low_outlier'] ), 1, 0)
+        self.df['signal_low_osutlier'] = np.where( (self.df['z_log_return'] < self.df['low_outlier'] ), 1, 0)
         self.df['signal_up_outlier'] = np.where( (self.df['z_log_return'] > self.df['up_outlier'] ), 1, 0)
         if save_features:
             self.signals.append('signal_low_outlier')
             self.signals.append('signal_up_outlier')
             self.settings_outlier = {'zlim':zlim}
         if plot:
+            mu = self.df['z_log_return'].mean()
+            sigma = self.df['z_log_return'].std()
+            x = np.linspace(self.df['z_log_return'].min(),self.df['z_log_return'].max(), 15000)
+            y = stats.norm.pdf(x, loc = mu, scale = sigma)
+            
             fig, axs = plt.subplots(2, 1,figsize=(15,8))
 
-            axs[0].hist(self.df['z_log_return'],bins = 100 )
+            axs[0].hist(self.df['z_log_return'],density = True,bins = 100 , label = 'Returns distribution')
             axs[0].axvline(l1, color='r', linestyle='--')
             axs[0].axvline(-l1, color='r', linestyle='--')
             axs[0].axvline(l2, color='green', linestyle='--')
             axs[0].axvline(-l2, color='green', linestyle='--')
-
+            axs[0].plot(x,y, linewidth = 3, color = 'r', label = 'Normal Dist Curve')
+            
             axs[1].plot(self.df['Date'],self.df['z_log_return'])
             axs[1].plot(self.df['Date'],self.df['low_outlier'], linestyle='--')
             axs[1].plot(self.df['Date'],self.df['up_outlier'], linestyle='--')
 
+            fig.legend()
             plt.show()
+
+            z_stat, p_stat = stats.normaltest(self.df['z_log_return'].dropna())
+            p_stat = round(p_stat, 7) 
+            print('---------------------- returns normality tests ----------------------------')
+            if p_stat < 0.05:
+                print(f'pvalue: {p_stat} then, returns do not follow a normal distribution')
+            else:
+                print(f'pvalue: {p_stat} then, returns follow a normal distribution')
     
     def analysis_roll_mean_log_returns(self, lags, plot = False):
 
@@ -1826,7 +1848,7 @@ class signal_analyser_object:
         if self.return_fig:
             return fig
         
-    def create_backtest_signal(self,days_strategy, test_size, feature_name):
+    def create_backtest_signal(self,days_strategy, test_size, feature_name, high_exit = False, low_exit = False):
         asset_1 = 'Close'
         up_signal, low_signal= f'signal_up_{feature_name}', f'signal_low_{feature_name}'
         df1 = self.data.iloc[-test_size:,:].copy()
@@ -1846,54 +1868,84 @@ class signal_analyser_object:
         df2['span'] = (pd.to_datetime(df2['Date']) - pd.to_datetime(df2['lag_Date'])).dt.days - 1
         df2['break'] = np.where(df2['span'] > 3, 1, 0)
         df2['break'] = np.where(df2['span'].isna(), 1, df2['break'])
-
+    
         df2['chain_id'] = df2.sort_values(['Date']).groupby(['break']).cumcount() + 1
         df2['chain_id'] = np.where(df2['break'] == 1, df2['chain_id'], np.nan )
         df2['chain_id'] = df2['chain_id'].fillna(method = 'ffill')
-
+    
         df2['internal_rn'] = df2.sort_values(['Date']).groupby(['chain_id']).cumcount() + 1
         df2['inv_internal_rn'] = df2.sort_values(['Date'],ascending = False).groupby(['chain_id']).cumcount() + 1
-
+    
         df2['first_in_chain'] = np.where(df2['internal_rn'] == 1, True, False)
         df2['last_in_chain'] = np.where(df2['inv_internal_rn'] == 1, True, False)
-
+    
         df2 = df2.drop(columns = ['break','span','lag_Date','inv_internal_rn']).sort_values('Date')
-
+    
         df2 = df2[(df2.last_in_chain == True) & (df2.signal_type == 'down')][['last_in_chain']]
         dft = df1.merge(df2,how = 'left',left_index=True, right_index=True )
-
+    
         dft['chain_id'] = dft.sort_values(['Date']).groupby(['last_in_chain']).cumcount() + 1
         dft['chain_id'] = np.where(dft['last_in_chain'] == True, dft['chain_id'], np.nan )
         dft['chain_id'] = dft['chain_id'].fillna(method = 'ffill')
-
+    
         dft['internal_rn'] = dft.sort_values(['Date']).groupby(['chain_id']).cumcount() + 1
         dft['flag'] = np.where(dft['internal_rn'] < days_strategy, 1,0)
-
+        
         dft['lrets_bench'] = np.log(dft[asset_1]/dft[asset_1].shift(1))
         dft['bench_prod'] = dft['lrets_bench'].cumsum()
         dft['bench_prod_exp'] = np.exp(dft['bench_prod']) - 1
-
+        
+        if high_exit and low_exit:
+            dft['open_strat'] = np.where(dft.last_in_chain == True, dft.Open, np.nan)
+            dft['open_strat'] = dft['open_strat'].fillna(method = 'ffill')
+            dft['open_strat'] = np.where(dft.flag == 1, dft.open_strat, np.nan)
+            dft['high_strat_ret'] = (dft['High']/dft['open_strat']-1)*100
+            dft['low_strat_ret'] = (dft['Low']/dft['open_strat']-1)*100
+            dft['high_exit'] =  np.where(((dft['high_strat_ret'] >= high_exit) | (dft['internal_rn'] == days_strategy)), 1, np.nan)
+            dft['low_exit'] =  np.where((dft['low_strat_ret'] <= low_exit), -1, np.nan)
+            
+            dft["exit_type"] = dft[["high_exit", "low_exit"]].max(axis=1)
+            dft['exit_type'] = np.where(dft["exit_type"] == 1, 1, np.where(dft["exit_type"] == -1,-1,np.nan))
+            dft['exit'] = np.where(dft['exit_type'].isnull(), np.nan, 1)
+            dft['exit_order'] = dft.sort_values(['Date']).groupby(['chain_id','exit']).cumcount() + 1
+            dft['exit'] = np.where(dft['exit_order'] == 1, True, np.nan)
+            dft = dft.drop(columns = ['exit_order'])
+            ## if last signal is near
+            max_id = dft.chain_id.max()
+            dft['max_internal_rn'] = dft.sort_values(['Date']).groupby(['chain_id']).internal_rn.transform('max')
+            dft['exit'] = np.where((dft.chain_id == max_id) & (dft.max_internal_rn < days_strategy) & (dft.max_internal_rn == dft.internal_rn), 1, dft['exit'])
+            
+            dft['exit_step'] = np.where(dft.exit == 1, dft.internal_rn, np.nan)
+            dft['exit_step'] = dft.sort_values(['Date']).groupby(['chain_id']).exit_step.transform('max')
+            
+            dft['flag'] = np.where(dft.internal_rn <= dft.exit_step, 1, 0)
+            dft = dft.drop(columns = ['open_strat', 'high_strat_ret', 'low_strat_ret','exit_step', 'exit','exit_type','high_exit','low_exit', 'max_internal_rn'])
+        
         dft['lrets_strat'] = np.log(dft[asset_1].shift(-1)/dft[asset_1]) * dft['flag']
         dft['lrets_strat'] = np.where(dft['lrets_strat'].isna(),-0.0,dft['lrets_strat'])
         dft['lrets_prod'] = dft['lrets_strat'].cumsum()
         dft['strat_prod_exp'] = np.exp(dft['lrets_prod']) - 1
-
+    
         bench_rets = round(dft['bench_prod_exp'].values[-1]*100,1)
         strat_rets = round(dft['strat_prod_exp'].values[-1]*100,1)
-
         
-        message1 = f'returns benchmark {bench_rets}%'
-        message2 = f'returns strategy {strat_rets}%'
+        bench_sr = round(sharpe_ratio(dft.bench_prod_exp.dropna()),1)
+        strat_sr = round(sharpe_ratio(dft.strat_prod_exp.dropna()),1)
+        
+        message1 = f'{bench_rets}%'
+        message2 = f'{strat_rets}%'
         
         messages = {
-            'benchmark return':message1,
-            'strategy return':message2
+            'benchmark return:':message1,
+            'benchmark sharpe ratio:': bench_sr,
+            'strategy return:':message2,
+            'strategy sharpe ratio:': strat_sr,
         }
         if self.show_plot:
             print('----------------------------')
-            print(message1)
-            print(message2)
+            print(messages)
             print('----------------------------')
+            
         fig = plt.figure(1)
         plt.plot(dft.bench_prod_exp.values, label = 'benchmark')
         plt.scatter(range(len(dft)),np.where(dft[low_signal] == 1,dft.bench_prod_exp.values,np.nan),color = 'red', label = 'signal')
@@ -1919,23 +1971,24 @@ class signal_analyser_object:
             
             upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = self.save_aws + result_json_name, input_path = self.save_path + result_json_name, aws_credentials = self.aws_credentials)
             upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = self.save_aws + result_plot_name, input_path = self.save_path + result_plot_name, aws_credentials = self.aws_credentials)
-
+    
         if not self.show_plot:
             plt.close()
             
         del df1,df2,dft
-
+    
         if self.return_fig:
             return fig, messages
         
-def execute_signal_analyser(test_data_size, feature_name, days_list, configuration, method, object_stock, signal_analyser_object, plot = False, backtest= False):
+def execute_signal_analyser(test_data_size, feature_name, days_list, configuration, method, object_stock, signal_analyser_object, plot = False, backtest= False, exit_params = {}):
+     
     method(**configuration)
     signal_assess = signal_analyser_object(object_stock.df,object_stock.stock_code,show_plot = plot)
     signal_assess.signal_analyser(test_size = test_data_size, feature_name = feature_name, days_list = days_list, threshold = 1)
-    
+
     if backtest:
         print('-----------------------back test ---------------------------')
-        signal_assess.create_backtest_signal(backtest, test_data_size, feature_name)
+        signal_assess.create_backtest_signal(backtest, test_data_size, feature_name, **exit_params )
     
     return signal_assess.mean_median_return
 
