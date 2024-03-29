@@ -611,6 +611,23 @@ class produce_plotly_plots:
         ma1 = self.settings['settings'][spread_column]['ma1']
         ma2 = self.settings['settings'][spread_column]['ma2']
         hmm_n_clust = self.settings['settings']['hmm']['n_clusters']
+
+        def return_FeatureSingal_lists(feature, feature_2):
+            signal_up_list = [f'signal_up_{feature}', f'signal_up_{feature_2}']  
+            signal_low_list = [f'signal_low_{feature}', f'signal_low_{feature_2}']
+            norm_list = [f'norm_{feature}', f'z_{feature}', feature]
+            return norm_list, signal_up_list, signal_low_list
+            
+        # feature_list corrector
+        new_feature_list = list()
+        for feature in feature_list:
+            norm_list, _ , _ = return_FeatureSingal_lists(feature, '')
+            for norm_feat in norm_list:
+                if norm_feat in df.columns:
+                    new_feature_list.append(feature)
+                    break
+                    
+        feature_list = new_feature_list
         feature_rows = len(feature_list)
 
         rows_subplot = feature_rows + 1
@@ -627,9 +644,8 @@ class produce_plotly_plots:
         ### signal plots
         for row_i, feature in enumerate(feature_list,start=1):
             feature_2 = 'nan'
-            signal_up_list = [f'signal_up_{feature}', f'signal_up_{feature_2}']  
-            signal_low_list = [f'signal_low_{feature}', f'signal_low_{feature_2}']
-            norm_list = [f'norm_{feature}', f'z_{feature}', feature]
+            norm_list, signal_up_list, signal_low_list = return_FeatureSingal_lists(feature, feature_2)
+            
             # signal
             for norm_feat in norm_list:
                 if norm_feat in df.columns:
