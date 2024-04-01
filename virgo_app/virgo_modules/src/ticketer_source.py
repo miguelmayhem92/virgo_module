@@ -874,7 +874,7 @@ class stock_eda_panel(object):
     def rsi_feature_improved(self, window, threshold, plot = False, save_features = False):
         feature_name = 'RSI'
         rsi = RSIIndicator(close = self.df['Close'], window = window).rsi()
-        self.df[feature_name] = rsi 
+        self.df[feature_name] = rsi.replace([np.inf, -np.inf], 0).fillna(method = 'ffill')
         self.compute_clip_bands(feature_name,threshold)
 
         if save_features:
@@ -1050,7 +1050,7 @@ class stock_eda_panel(object):
     def roc_feature(self, window, threshold, plot = False, save_features = False):
         feature_name = 'ROC'
         roc = ROCIndicator(close = self.df['Close'], window = window).roc()
-        self.df[feature_name] = roc 
+        self.df[feature_name] = roc.replace([np.inf, -np.inf], 0).fillna(method = 'ffill')
         self.compute_clip_bands(feature_name,threshold)
 
         if save_features:
@@ -1062,7 +1062,7 @@ class stock_eda_panel(object):
     def stoch_feature(self, window, smooth1, smooth2, threshold, plot = False, save_features = False):
         feature_name = 'STOCH'
         stoch = StochRSIIndicator(close = self.df['Close'], window = window, smooth1=smooth1, smooth2=smooth2).stochrsi()
-        self.df[feature_name] = stoch
+        self.df[feature_name] = stoch.replace([np.inf, -np.inf], 0).fillna(method = 'ffill')
         self.compute_clip_bands(feature_name,threshold)
 
         if save_features:
@@ -1074,7 +1074,7 @@ class stock_eda_panel(object):
     def stochastic_feature(self, window, smooth, threshold, plot = False, save_features = False):
         feature_name = 'STOCHOSC'
         stochast = StochasticOscillator(close = self.df['Close'], high = self.df['High'], low = self.df['Low'], window = window,smooth_window=smooth).stoch()
-        self.df[feature_name] = stochast
+        self.df[feature_name] = stochast.replace([np.inf, -np.inf], 0).fillna(method = 'ffill')
         self.compute_clip_bands(feature_name,threshold)
 
         if save_features:
@@ -1086,7 +1086,7 @@ class stock_eda_panel(object):
     def william_feature(self, lbp, threshold, plot = False, save_features = False):
         feature_name = 'WILL'
         will = WilliamsRIndicator(close = self.df['Close'], high = self.df['High'], low = self.df['Low'], lbp = lbp).williams_r() 
-        self.df[feature_name] = will
+        self.df[feature_name] = will.replace([np.inf, -np.inf], 0).fillna(method = 'ffill')
         self.compute_clip_bands(feature_name,threshold)
 
         if save_features:
@@ -1098,7 +1098,7 @@ class stock_eda_panel(object):
     def vortex_feature(self, window, threshold, plot = False, save_features = False):
         feature_name = 'VORTEX'
         vortex = VortexIndicator(close = self.df['Close'], high = self.df['High'], low = self.df['Low'], window = window).vortex_indicator_diff()
-        self.df[feature_name] = vortex
+        self.df[feature_name] = vortex.replace([np.inf, -np.inf], 0).fillna(method = 'ffill')
         self.compute_clip_bands(feature_name,threshold)
 
         if save_features:
