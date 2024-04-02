@@ -440,7 +440,7 @@ class stock_eda_panel(object):
         self.df['up_outlier'] = zlim*self.df['z_std_log_return'] + mean_
         self.df['low_outlier'] = -zlim*self.df['z_std_log_return'] + mean_
 
-        self.df['signal_low_osutlier'] = np.where( (self.df['z_log_return'] < self.df['low_outlier'] ), 1, 0)
+        self.df['signal_low_outlier'] = np.where( (self.df['z_log_return'] < self.df['low_outlier'] ), 1, 0)
         self.df['signal_up_outlier'] = np.where( (self.df['z_log_return'] > self.df['up_outlier'] ), 1, 0)
         if save_features:
             self.signals.append('signal_low_outlier')
