@@ -31,6 +31,18 @@ from pykalman import KalmanFilter
 from .aws_utils import upload_file_to_aws
 
 def calculate_cointegration(series_1, series_2):
+    '''
+    calculate cointegration score of two time series.
+
+            Parameters:
+                    series_1 (pd.series): pandas series of the asset returns
+                    series_2 (pd.series): pandas series of the asset returns
+
+            Returns:
+                    coint_flag (int): cointegration flag, 1 or 0. 1 if p value and coint_t lower than 0.05 and critical value
+                    hedge_value (float): hedge value
+    '''
+
     coint_flag = 0
     coint_res = coint(series_1, series_2)
     coint_t = coint_res[0]
@@ -44,8 +56,43 @@ def calculate_cointegration(series_1, series_2):
     return coint_flag, hedge_value
 
 class pair_finder():
+    """
+    class that is going assess two assets to evaluate whether both are cointegrated
+
+    Attributes
+    ----------
+    df  : pd.DataFrame
+        dataframe of merged assets with spread score
+    asset_1 : str
+        asset to assess
+    asset_2 : str
+        secondary asset to assess
+
+    Methods
+    -------
+    produce_zscore(window=int, z_threshold=float, verbose=boolean):
+        producing z score from the spread. Also getting signals using window functions
+    plot_scores():
+        display plot of the time series and signals and other plot for pair signal strategy
+    evaluate_signal(days_list=list(),test_size=int, signal_position=int,threshold=float,verbose=boolean, plot=boolean):
+        evaluate the signal strategy using future returns
+    create_backtest_signal(days_strategy=int, test_size=int):
+        create back test of the strategy and get somo plot analysis
+    """
     def __init__(self, raw_data , asset_1 ,asset_2):
-        
+        """
+        Initialize object, selecting just the two assets and getting the spread between both assets
+
+        Parameters
+        ----------
+        raw_data (pd.DataFrame): dataframe of all assets
+        asset_1 (str): asset to assess
+        asset_2 (str): secondary asset to assess
+
+        Returns
+        -------
+        None
+        """
         df = raw_data[[asset_1, asset_2]]
         coint_flag, hedge_ratio = calculate_cointegration(df[asset_1], df[asset_2])
         spread = df[asset_1] - (hedge_ratio * df[asset_2])
@@ -55,6 +102,19 @@ class pair_finder():
         self.asset_2 = asset_2
         
     def produce_zscore(self, window, z_threshold, verbose = False):
+        """
+        producing z score from the spread. Also getting signals using window functions
+
+        Parameters
+        ----------
+        window (int): window size
+        z_threshold (float): alpha and z threhold for the normalized feature
+        verbose (boolean): to print analysis
+
+        Returns
+        -------
+        None
+        """
         self.z_threshold = z_threshold
         spread_series = pd.Series(self.df.spread)
         mean = spread_series.rolling(center = False, window = window).mean()
@@ -74,7 +134,17 @@ class pair_finder():
         self.df['low_pair_signal'] = low_signal
         
     def plot_scores(self):
-        
+        """
+        display plot of the time series and signals and other plot for pair signal strategy
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
         plt.axhline(y=0.0, color='grey', linestyle='--')
         plt.figure(1, figsize = (10, 4))
         plt.plot(self.df.spread.values)
@@ -104,7 +174,22 @@ class pair_finder():
         fig.show()
         
     def evaluate_signal(self, days_list,test_size, signal_position = False,threshold = 0.05,verbose = False, plot = False):
-    
+        """
+        evaluate the signal strategy using future returns 
+
+        Parameters
+        ----------
+        days_list (list): list of days future returns
+        test_size (int): teste data size, the remainng is taken as training data
+        signal_position (int): position of the signal to open position
+        threshold (float): alpha or z threshold of the normalized feature
+        verbose (boolean): if True, print results
+        plot (boolean): if true, display plots
+
+        Returns
+        -------
+        None
+        """
         df = self.df.sort_values('Date').iloc[0:-test_size,:].copy()
         returns_list = list()
         
@@ -206,6 +291,18 @@ class pair_finder():
         del df
         
     def create_backtest_signal(self,days_strategy, test_size):
+        """
+        create back test of the strategy and get somo plot analysis
+
+        Parameters
+        ----------
+        days_strategy (int): list of days future returns
+        test_size (int): teste data size, the remainng is taken as training data
+        
+        Returns
+        -------
+        None
+        """
         asset_1 = self.asset_1
         df1 = self.df.iloc[-test_size:,:].copy()
         df2 = df1.copy()
@@ -273,7 +370,18 @@ class pair_finder():
         del df1,df2,dft
         
 def produce_big_dataset(data_frames, stocks_codes_, feature_list, limit = 500):
-    
+    '''
+    combine multiple asset, taking a common schema
+
+            Parameters:
+                    data_frames (pd.DataFrame): Base dataframe
+                    stocks_codes_ (list): assets to select
+                    feature_list (list): feature list
+                    limit (int): number of observation per asset
+
+            Returns:
+                    dataframe (pd.DataFrame): Base dataframe with extra data
+    '''
     feature_list_ = list()
     columns_vector = list(data_frames[stocks_codes_[-1]].columns )
     for feat in feature_list:
@@ -301,7 +409,19 @@ def produce_big_dataset(data_frames, stocks_codes_, feature_list, limit = 500):
     return dataframe
 
 def ranking(data, weighted_features, top = 5, window = 5):
-    
+    '''
+    Create a ranking of assets given current signals and weighted average importance
+
+            Parameters:
+                    data (pd.Dataframe): base data
+                    weighted_features (dict): configuration dictionary
+                    top (int): top n to get result
+                    window (int): number of days to assess
+
+            Returns:
+                    top_up (list): top roof signal asset
+                    top_low (list): top botton signal asset
+    '''
     features = weighted_features.keys()
     up_columns = ['signal_up_' + x for x in features]
     low_columns = ['signal_low_' + x for x in features]
@@ -336,16 +456,23 @@ def ranking(data, weighted_features, top = 5, window = 5):
     return top_up, top_low
 
 def produce_dashboard(data, columns , ticket_list, show_plot = True, nrows = 150,save_name = False, save_path = False, save_aws = False, aws_credential = False):
-    """
-    data: pandas df
-    columns: list 
-    ticket_list: list asset list
-    nrows: int
-    show_plot: bool
-    save_path: str local path for saving e.g r'C:/path/to/the/file/'
-    save_aws: str remote key in s3 bucket path e.g. 'path/to/file/'
-    aws_credentials: dict
-    """
+    '''
+    produce dashboard using signals and list of assets
+
+            Parameters:
+                    data (pd.Dataframe): base data
+                    columns (list): list of features or signals 
+                    ticket_list (list): list of assets
+                    show_plot (boolean): if true, display plot
+                    nrows (int): number of days back to display
+                    save_name (str): dashboad name resulting file
+                    save_path (str): local path for saving e.g r'C:/path/to/the/file/'
+                    save_aws (str): remote key in s3 bucket path e.g. 'path/to/file/'
+                    aws_credential (dict): aws credentials
+
+            Returns:
+                    None
+    '''
     top = len(ticket_list)
     columns = ['history'] + columns
     subtitles = list()
@@ -395,7 +522,17 @@ def produce_dashboard(data, columns , ticket_list, show_plot = True, nrows = 150
         
 
 def rank_by_return(data, lag_days, top_n = 5):
-    
+    '''
+    produce ranking  by returns
+
+            Parameters:
+                    data (pd.Dataframe): base data
+                    lag_days (int): number of days to consider
+                    top_n (int): top n results assets
+
+            Returns:
+                    result (list): resulting assets top n most important
+    '''
     data = data.sort_values(['Ticket','Date'], ascending=[False,False]).reset_index(drop = True)
     data['first'] = data.sort_values(['Date'], ascending=[False]).groupby(['Ticket']).cumcount() + 1
     data =  data[data['first'] <= lag_days]
@@ -416,18 +553,19 @@ def rank_by_return(data, lag_days, top_n = 5):
     return result
 
 def get_data(ticker_name:str, ticket_settings:dict, n_days:int = False, hmm_available: object = False, data_window:str = '5y') -> object:
-    """
-    this functions runs the stock_eda_panel
-    it is shared between train model and predictions
-    arguments:
-    hmm_available: if the hmm is available, in prediction is required
-    ticker_name: name of the asset
-    ticket_settings: dictionary with all the parameters to compute features
-    n_days: to set an arbitrary data size
+    '''
+    this functions runs the stock_eda_panel. It is shared between train model and predictions
 
-    returns: stock eda panel
-    """
+            Parameters:
+                    ticker_name (str): name of the asset
+                    ticket_settings (dict): dictionary with all the parameters to compute features
+                    n_days (int): to set an arbitrary data size
+                    hmm_available (obj): if the hmm is available, in prediction is required
+                    data_window (str): window for the data extraction
 
+            Returns:
+                    object_stock (obj): resulting object_stock object
+    '''
     object_stock = stock_eda_panel(ticker_name , n_days, data_window)
     object_stock.get_data()
 
@@ -524,6 +662,14 @@ def get_data(ticker_name:str, ticket_settings:dict, n_days:int = False, hmm_avai
 trends = {'adjusted' : 0.001, 'smooth' : 0.0001}
 
 def apply_KF(self, trends):
+    '''
+    create kalman filter feature and attach it to the stock_eda_panel object
+
+            Parameters:
+                    trends (dict): configurations of the kalman filter
+            Returns:
+                    none
+    '''
     for ttrend in trends:
         tcov = trends.get(ttrend)
         kf = KalmanFilter(transition_matrices = [1],
@@ -538,7 +684,16 @@ def apply_KF(self, trends):
 stock_eda_panel.apply_KF = apply_KF
 
 def call_ml_objects(stock_code, client, call_models = False):
-    
+    '''
+    call artifcats from mlflow
+
+            Parameters:
+                    stock_code (str): asset name
+                    client (obj): mlflow client
+                    call_models (boolean): if true, call ml artifacts
+            Returns:
+                    objects (dict): that contains ml artifacts, data , configs and models
+    '''
     objects = dict()
     
     registered_model_name = f'{stock_code}_models'
@@ -584,17 +739,57 @@ def call_ml_objects(stock_code, client, call_models = False):
     return objects
 
 class produce_plotly_plots:
+    """
+    class that helps to produce different dashboards
+
+    Attributes
+    ----------
+    ticket_name : str
+        asset name
+    data_frame (pd.DataFrame): asset data
+    settings : dict
+        asset configurations
+    show_plot : boolean
+        if true, display plots
+    save_path : str
+        local path for saving e.g r'C:/path/to/the/file/'
+    save_aws : str
+        remote key in s3 bucket path e.g. 'path/to/file/'
+    aws_credentials : dict
+        aws credentials
+    return_figs : boolean
+        if true, methods will return objects
+
+    Methods
+    -------
+    plot_asset_signals(feature_list=list, spread_column=list, date_intervals=list):
+        Display signals and hmm states over closing prices and feature time series
+    explore_states_ts():
+        display scaled time series of every hmm state
+    plot_hmm_analysis(settings=dict, t_matrix=txt, model=obj):
+        display plots that analyse hmm states
+    produce_forecasting_plot(predictions=pd.DataFrame):
+        display forecasting plots
+    """
     def __init__(self,ticket_name, data_frame,settings, save_path = False, save_aws = False, show_plot= True, aws_credentials = False, return_figs = False):
         """
-        ticket_name: str asset name
-        data_frame: pandas df
-        settings: dict
-        show_plot: bool
-        save_path: str local path for saving e.g r'C:/path/to/the/file/'
-        save_aws: str remote key in s3 bucket path e.g. 'path/to/file/'
-        aws_credentials: dict
+        Initialize object
+
+        Parameters
+        ----------
+        ticket_name (str): asset name
+        data_frame (pd.DataFrame): asset data
+        settings (dict): asset configurations
+        show_plot (boolean): if true, display plots
+        save_path (str): local path for saving e.g r'C:/path/to/the/file/'
+        save_aws (str): remote key in s3 bucket path e.g. 'path/to/file/'
+        aws_credentials (dict): aws credentials
+        return_figs (boolean): if true, methods will return objects
+
+        Returns
+        -------
+        None
         """
-        
         self.ticket_name = ticket_name
         self.data_frame = data_frame
         self.settings = settings
@@ -605,7 +800,19 @@ class produce_plotly_plots:
         self.return_figs = return_figs
 
     def plot_asset_signals(self, feature_list,spread_column, date_intervals = False):
-        
+        """
+        Display signals and hmm states over closing prices and feature time series
+
+        Parameters
+        ----------
+        feature_list (list): signal list
+        spread_column (list): moving average list
+        date_intervals (list): list of tuples of dates, e.g [('2022-01-01','2023-01-01'),('2022-01-01','2023-01-01')]
+
+        Returns
+        -------
+        fig (obj): plotly dashboard
+        """
         result_json_name = 'panel_signals.json'
         df = self.data_frame
         ma1 = self.settings['settings'][spread_column]['ma1']
@@ -695,6 +902,17 @@ class produce_plotly_plots:
             return fig
         
     def explore_states_ts(self):
+        """
+        display scaled time series of every hmm state
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        fig (obj): plotly dashboard
+        """
         result_json_name = 'ts_hmm.json'
         df = self.data_frame
         hmm_n_clust = self.settings['settings']['hmm']['n_clusters']
@@ -743,6 +961,20 @@ class produce_plotly_plots:
             return fig
         
     def plot_hmm_analysis(self,settings, t_matrix, model = False):
+        """
+        display plots that analyse hmm states
+
+        Parameters
+        ----------
+        settings (dict): asset configurations
+        t_matrix (txt): asset state transition matrix
+        model(obj): hmm model
+
+        Returns
+        -------
+        fig (obj): plotly dashboard
+        messages (dict): hmm model metrics
+        """
         result_json_name = 'hmm_analysis.json'
         df = self.data_frame
         hmm_n_clust = self.settings['settings']['hmm']['n_clusters']
@@ -864,6 +1096,17 @@ class produce_plotly_plots:
         if self.return_figs:
             return fig, messages
     def produce_forecasting_plot(self,predictions):
+        """
+        display forecasting plots
+
+        Parameters
+        ----------
+        predictions (pd.DataFrame): asset predictions
+
+        Returns
+        -------
+        None
+        """
         result_json_name = 'forecast_plot.json'
         hmm_n_clust = self.settings['settings']['hmm']['n_clusters']
         model_type = self.settings.get('model_type',False)
@@ -936,7 +1179,18 @@ class produce_plotly_plots:
             upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = self.save_aws + result_json_name, input_path = self.save_path + result_json_name, aws_credentials = self.aws_credentials)
 
 def plot_hmm_analysis_logger(data_frame,test_data_size, save_path = False, show_plot = True):
-    
+    '''
+    display box plots train and test of hmm state returns
+
+            Parameters:
+                    data_frame (pd.DataFrame): asset data
+                    test_data_size (int): test data size, the remaining is training data
+                    save_path (str): path/to/save/
+                    show_plot (boolean): if true, display plot
+
+            Returns:
+                    None
+    '''
     df = data_frame
     df_ = df[['Date','hmm_feature','Close',"chain_return"]].sort_values('Date')
     fig, axs = plt.subplots(1,2,figsize=(10,4))
@@ -950,7 +1204,18 @@ def plot_hmm_analysis_logger(data_frame,test_data_size, save_path = False, show_
         plt.close()
 
 def plot_hmm_tsanalysis_logger(data_frame, test_data_size,save_path = False, show_plot = True):
-    
+    '''
+    display time series hmm state analisys
+
+            Parameters:
+                    data_frame (pd.DataFrame): asset data
+                    test_data_size (int): test data size, the remaining is training data
+                    save_path (str): path/to/save/
+                    show_plot (boolean): if true, display plot
+
+            Returns:
+                    None
+    '''
     df = data_frame
     df_ = df[['Date','hmm_feature','Close',"chain_return"]].sort_values('Date')
     states = list(df_['hmm_feature'].unique())
@@ -977,7 +1242,20 @@ def plot_hmm_tsanalysis_logger(data_frame, test_data_size,save_path = False, sho
         plt.close()
 
 def extract_data_traintest(object_stock,features_to_search,configs, target_configs, window_analysis = False, drop_nan= True):
+    '''
+    code snippet that execute object_stock or stock_eda_panel to get features
 
+            Parameters:
+                    object_stock (object): stock_eda_panel object
+                    features_to_search (list): list of features
+                    configs (dict): asset configurations
+                    target_configs (dict): target configurations
+                    window_analysis (int): take a sample size data
+                    drop_nan (boolean): remove nans from the data
+
+            Returns:
+                    object_stock (obj): object_stock with features and signals
+    '''
     object_stock.get_data() 
     object_stock.volatility_analysis(**configs['volatility']['config_params'], plot = False, save_features = False)
     target_params_up = target_configs['params_up']
@@ -1003,7 +1281,19 @@ def extract_data_traintest(object_stock,features_to_search,configs, target_confi
     return object_stock
 
 def produce_simple_ts_from_model(stock_code, configs, n_days = 2000 , window_scope = '5y'):
+    '''
+    display dashboard analysis of a given asset
 
+            Parameters:
+                    stock_code (str): asset name
+                    configs (dict): asset configurations
+                    n_days (int): data size
+                    window_scope (str): window data size
+
+            Returns:
+                    fig (obj): plotly dashboard
+                    df (pd.DataFrame): result asset dataset
+    '''
     ## getting data
     volat_args = {'lags': 3, 'trad_days': 15, 'window_log_return': 10}
     
@@ -1062,17 +1352,21 @@ def produce_simple_ts_from_model(stock_code, configs, n_days = 2000 , window_sco
     return fig, df
 
 def save_edge_model(data, save_path = False, save_aws = False, show_result = False, aws_credentials = False):
-    """
-    data: pandas df
-    model_name: str
-    ticket_name: str name of the asset
-    save_path: str local path for saving e.g r'C:/path/to/the/file/'
-    save_aws: str remote key in s3 bucket path e.g. 'path/to/file/'
-    show_results: bool
-    aws_credentials: dict
-    
-    return a print of the dictionary
-    """
+    '''
+    get latest edge execution and edge probability
+
+            Parameters:
+                    data (pd.DataFrame): asset data
+                    model_name (str): model name
+                    ticket_name (str): name of the asset
+                    save_path (str): local path for saving e.g r'C:/path/to/the/file/'
+                    save_aws (str): remote key in s3 bucket path e.g. 'path/to/file/'
+                    show_results (bool): if true, display results
+                    aws_credentials (dict): aws credentials
+
+            Returns:
+                    None
+    '''
     today = datetime.datetime.today().strftime('%Y-%m-%d')
     
     curent_edge = (
@@ -1096,7 +1390,19 @@ def save_edge_model(data, save_path = False, save_aws = False, show_result = Fal
         print(curent_edge)
 
 def create_feature_edge(model, data,feature_name, threshold, target_variables):
+    '''
+    get latest edge execution and edge probability
 
+            Parameters:
+                    model (obj): edge model artifact
+                    data (pd.DataFrame): asset data
+                    feature_name (str): edge feature name
+                    threshold (float): edge threshold
+                    target_variables (list): names of the target columns
+
+            Returns:
+                    result_df (pd.DataFrame): result dataframe with edges
+    '''
     label_prediction = ['proba_'+x for x in target_variables]
     predictions = model.predict_proba(data)
     predictions = pd.DataFrame(predictions, columns = label_prediction, index = data.index)
