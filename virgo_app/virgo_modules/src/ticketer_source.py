@@ -2734,11 +2734,11 @@ class signal_analyser_object:
             )
         )
         df = df[~df.signal_type.isna()]
-        # df['Date'] = df.index
         df['lag_Date'] = df['Date'].shift(1)
+        df['lag_signal_type'] = df['signal_type'].shift(1)
         df['span'] = (pd.to_datetime(df['Date']) - pd.to_datetime(df['lag_Date'])).dt.days - 1
-        df['break'] = np.where(df['span'] > 3, 1, 0)
-        df['break'] = np.where(df['span'].isna(), 1, df['break'])
+        df['break'] = np.where((df['span'] > 3) & (df['lag_signal_type'] == df['signal_type']), 1, 0)
+        df['break'] = np.where((df['lag_signal_type'] != df['signal_type']), 1, df['break'])
 
         df['chain_id'] = df.sort_values(['Date']).groupby(['break']).cumcount() + 1
         df['chain_id'] = np.where(df['break'] == 1, df['chain_id'], np.nan )
@@ -2861,11 +2861,11 @@ class signal_analyser_object:
                     )
                 )
         df2 = df2[~df2.signal_type.isna()]
-        # df2['Date_'] = df2.index
         df2['lag_Date'] = df2['Date'].shift(1)
+        df2['lag_signal_type'] = df2['signal_type'].shift(1)
         df2['span'] = (pd.to_datetime(df2['Date']) - pd.to_datetime(df2['lag_Date'])).dt.days - 1
-        df2['break'] = np.where(df2['span'] > 3, 1, 0)
-        df2['break'] = np.where(df2['span'].isna(), 1, df2['break'])
+        df2['break'] = np.where((df2['span'] > 3) & (df2['lag_signal_type'] == df2['signal_type']), 1, 0)
+        df2['break'] = np.where((df2['lag_signal_type'] != df2['signal_type']), 1, df2['break'])
 
         df2['chain_id'] = df2.sort_values(['Date']).groupby(['break']).cumcount() + 1
         df2['chain_id'] = np.where(df2['break'] == 1, df2['chain_id'], np.nan )
