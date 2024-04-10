@@ -1389,6 +1389,7 @@ def save_edge_model(data, save_path = False, save_aws = False, show_result = Fal
     if show_result:
         print(curent_edge)
 
+## this function is going to be split and deprecated
 def create_feature_edge(model, data,feature_name, threshold, target_variables):
     '''
     get latest edge execution and edge probability
@@ -1418,3 +1419,73 @@ def create_feature_edge(model, data,feature_name, threshold, target_variables):
         result_df[f'acc_{type_use}_{feature_name}'] = np.where(result_df[f'signal_{type_use}_{feature_name}'] == result_df[pred_col.replace('proba_','')],1,0)
     
     return result_df
+
+def produce_probas(model,data, target_variables):
+    """
+    produce probabilities given a model
+
+            Parameters:
+                    model (obj): edge model artifact
+                    data (pd.DataFrame): asset data
+                    target_variables (list): names of the target columns
+
+            Returns:
+                    result_df (pd.DataFrame): result dataframe with edges
+                    label_prediction (list): list of resulting label columns
+    """
+    label_prediction = ['proba_'+x for x in target_variables]
+    predictions = model.predict_proba(data)
+    predictions = pd.DataFrame(predictions, columns = label_prediction, index = data.index)
+    
+    result_df = pd.concat([data, predictions], axis=1)
+    result_df = result_df[['Date'] + target_variables + label_prediction]
+
+    return result_df, label_prediction
+
+def produce_signals(result_df, feature_name, threshold, label_prediction):
+    """
+    produce signals from probabilities
+
+            Parameters:
+                    result_df (pd.DataFrame): asset data with probabilities
+                    feature_name (str): edge feature name
+                    threshold (float): edge threshold
+                    label_prediction (list): list of resulting label columns
+
+            Returns:
+                    result_df (pd.DataFrame): result dataframe with edges and signals
+    """
+    for pred_col in label_prediction:
+        type_use = 'low'
+        if 'down' in pred_col:
+            type_use = 'up' 
+            
+        result_df[f'signal_{type_use}_{feature_name}'] = np.where(result_df[pred_col] >= threshold,1,0)
+        result_df[f'acc_{type_use}_{feature_name}'] = np.where(result_df[f'signal_{type_use}_{feature_name}'] == result_df[pred_col.replace('proba_','')],1,0)
+
+    return result_df
+
+def edge_probas_lines(data, threshold, plot = False, look_back = 750):
+    """
+    produce a plotly plot of edges and closing prices
+
+            Parameters:
+                    data (pd.DataFrame): asset data with edge probabilities
+                    plot (boolean): if true, display plot
+                    threshold (float): edge threshold
+                    look_back (int): number of rows back to display
+
+            Returns:
+                    fig (obj): plotly go object
+    """
+    df = data[['Date','Close','proba_target_down','proba_target_up']].iloc[-look_back:]
+    
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    fig.add_trace(go.Scatter(x=df.Date, y=df.Close,mode='lines+markers',name='Close price'))
+    fig.add_trace(go.Scatter(x=df.Date, y=df.proba_target_down,mode='lines',marker = dict(color = 'coral'),name='go down'),secondary_y=True)
+    fig.add_trace(go.Scatter(x=df.Date, y=df.proba_target_up,mode='lines',marker = dict(opacity=0.1,size=80), name='go up'),secondary_y=True)
+    fig.add_shape(type="line", xref="paper", yref="y2",x0=0.02, y0=threshold, x1=0.9, y1=threshold,line=dict(color="red",dash="dash"),)
+    fig.update_layout(title_text="sirius - edge probabilities",width=1200,height = 500)
+    if plot:
+        fig.show()
+    return fig
