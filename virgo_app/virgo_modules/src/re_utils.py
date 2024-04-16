@@ -520,6 +520,53 @@ def produce_dashboard(data, columns , ticket_list, show_plot = True, nrows = 150
         # upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'multi_dashboards/'+save_name+'.json',input_path = save_path+save_name+'.json')
         upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = save_aws + save_name + '.json', input_path = save_path + save_name + '.json', aws_credentials = aws_credential)
         
+def produce_edges_dashboard(dataframe, ticket_list, save_name, show_plot = False, save_path = False, save_aws = False, aws_credentials = False):
+    '''
+    produce dashboard using signals and list of assets
+
+            Parameters:
+                    dataframe (pd.Dataframe): base data
+                    ticket_list (list): list of assets
+                    save_name (str): dashboad name resulting file
+                    show_plot (boolean): if true, display plot
+                    save_path (str): local path for saving e.g r'C:/path/to/the/file/'
+                    save_aws (str): remote key in s3 bucket path e.g. 'path/to/file/'
+                    aws_credential (dict): aws credentials
+
+            Returns:
+                    None
+    '''
+    n_assets = len(ticket_list)
+    
+    result_json_name = save_name
+    cols_length = 4
+    rows_length = math.ceil(n_assets/2) 
+    
+    subtitles = list()
+    for x in ticket_list:
+        subtitles.append(x)
+        subtitles.append(x + ' signal')
+    
+    fig = make_subplots(rows=rows_length, cols=cols_length,vertical_spacing = 0.01, horizontal_spacing = 0.03, shared_xaxes=True, subplot_titles = subtitles)
+    
+    for i,ticket in enumerate(ticket_list):
+        j = i%2*2 +1
+        i = i+1
+        i_r = math.ceil(i/2)
+    
+        show_legend = True if i == 1 else False
+    
+        df = dataframe[dataframe.asset == ticket]
+        fig.add_trace(go.Scatter(x=df['Date'], y=df['Close'],legendgroup="Close",showlegend = show_legend , mode='lines',name = 'Close', marker_color = 'blue'),col = j, row = i_r)
+        fig.add_trace(go.Scatter(x=df['Date'], y=df['proba_target_up'],legendgroup="proba",showlegend = show_legend , mode='lines',name = 'proba_target_up', marker_color = 'orange'),col = j+1, row = i_r)
+    fig.update_layout(height=rows_length*300, width=1500, title_text = f'dashboard top {n_assets} tickets')
+    
+    if save_path:
+        fig.write_json(save_path+result_json_name)
+    if show_plot:
+        fig.show()
+    if save_path and save_aws:
+        upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = save_aws + result_json_name, input_path = save_path + result_json_name, aws_credentials = aws_credentials)
 
 def rank_by_return(data, lag_days, top_n = 5):
     '''
