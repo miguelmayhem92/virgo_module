@@ -453,7 +453,7 @@ def ranking(data, weighted_features, top = 5, window = 5):
     top_up = list(df.sort_values('up_signas', ascending = False).index)[:top]
     top_low = list(df.sort_values('low_signas', ascending = False).index)[:top]
     
-    return top_up, top_low
+    return top_up, top_low, df
 
 def ranking_first(data, weighted_features, top = 5, window = 5):
     '''
