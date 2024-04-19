@@ -455,6 +455,60 @@ def ranking(data, weighted_features, top = 5, window = 5):
     
     return top_up, top_low
 
+def ranking_first(data, weighted_features, top = 5, window = 5):
+    '''
+    Create a ranking of assets given current signals and weighted average importance
+
+            Parameters:
+                    data (pd.Dataframe): base data
+                    weighted_features (dict): configuration dictionary
+                    top (int): top n to get result
+                    window (int): number of days to assess
+
+            Returns:
+                    top_up (list): top roof signal asset
+                    top_low (list): top botton signal asset
+    '''
+    features = weighted_features.keys()
+    up_columns = ['signal_up_' + x for x in features]
+    low_columns = ['signal_low_' + x for x in features]
+
+    def compute_score(df,col,window):
+        score = 0
+        for i in range(window):
+            row = df.iloc[i]
+            if (row[col] == 1) and (i == 0):
+                score += 1000
+            elif (row[col] == 1) and (i == 1):
+                score -= 200
+            elif (row[col] == 1) and (i >= 2):
+                score -= 50
+        return score
+    
+    ticket_list= list(data.Ticket.unique())
+    result = dict()
+    for ticket in ticket_list:
+        result[ticket] = dict()
+        df = data[data.Ticket == ticket].sort_values('Date').iloc[-window:]
+        
+        for col in low_columns:
+            df = df.sort_values('Date', ascending = False)
+            score = compute_score(df,col,window)
+            result[ticket][col] = score
+        for col in up_columns:
+            score = 0
+            df = df.sort_values('Date', ascending = False)
+            score = compute_score(df,col,window)
+            result[ticket][col] = score
+            
+    df = pd.DataFrame(result).T
+    df['up_signas'] = df[up_columns].sum(axis=1)
+    df['low_signas'] = df[low_columns].sum(axis=1)
+    
+    top_up = list(df.sort_values('up_signas', ascending = False).index)[:top]
+    top_low = list(df.sort_values('low_signas', ascending = False).index)[:top]
+    return top_up, top_low, df
+
 def produce_dashboard(data, columns , ticket_list, show_plot = True, nrows = 150,save_name = False, save_path = False, save_aws = False, aws_credential = False):
     '''
     produce dashboard using signals and list of assets
