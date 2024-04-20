@@ -2704,7 +2704,7 @@ class signal_analyser_object:
         days_list (list): list of integers [3,8,10] to assess
         threshold (float): alpha or z threshold
         verbose (boolean): print metrics
-        signal_position (int): if true, the signal is taken at the given step in the signal
+        signal_position (int): if true, the signal is taken at the given step after the signal end
 
         Returns
         -------
@@ -2721,6 +2721,7 @@ class signal_analyser_object:
         for days in days_list:
 
             feature_ = f'return_{days}d'
+            days = days + signal_position if signal_position else days
             df[feature_] = (df['Close'].shift(-days)/df['Close']-1)*100
             returns_list.append(feature_)
 
@@ -2758,9 +2759,16 @@ class signal_analyser_object:
         p_scores = list()
         medians_down = list()
         validations = list()
-        if not signal_position: ### for now it is based on the last signal on a chain
-            df_melt = df[df.last_in_chain == True].melt(id_vars=['signal_type'], value_vars=returns_list, var_name='time', value_name='value')
-            df_melt = df_melt.dropna()
+
+        if signal_position:
+            df['open_long'] = np.where(df.last_in_chain == True, True, np.nan)
+            df['open_long'] = df['open_long'].shift(signal_position)
+        else:
+            df['open_long'] = np.where(df.last_in_chain == True, True, np.nan)
+            
+        # df_melt = df[df.last_in_chain == True].melt(id_vars=['signal_type'], value_vars=returns_list, var_name='time', value_name='value')
+        df_melt = df[df.open_long == True].melt(id_vars=['signal_type'], value_vars=returns_list, var_name='time', value_name='value')
+        df_melt = df_melt.dropna()
 
         for evalx in returns_list:
 
@@ -2794,7 +2802,7 @@ class signal_analyser_object:
             self.mean_median_return = np.nan
 
         df2 = df.copy()
-        df2 = df2[df2.last_in_chain == True]
+        df2 = df2[df2.open_long == True]
 
 
         df2['lagdate'] = df2.Date.shift(1)
@@ -2802,12 +2810,17 @@ class signal_analyser_object:
 
         fig, axs = plt.subplots(1, 3, figsize = (15,5))
 
-        sns.boxplot(data=df2, y="span",ax = axs[0])
+        sns.violinplot(data=df2, y="span",ax = axs[0], color = 'lightblue', linewidth=0.7,inner="quart")
+        sns.stripplot(data=df2, y="span",ax = axs[0], jitter=True, zorder=1)
         axs[0].set_title('span between last signals')
         del df2
-        sns.boxplot(data=df[df.last_in_chain == True], y="internal_rn",ax = axs[1])
+        sns.violinplot(data=df[df.last_in_chain == True], y="internal_rn",ax = axs[1], color = 'lightblue', linewidth=0.7,inner="quart")
+        sns.stripplot(data=df[df.last_in_chain == True], y="internal_rn",ax = axs[1], jitter=True, zorder=1)
         axs[1].set_title('signal duration distribution')
-        sns.boxplot(data=df_melt, x="time", y="value", hue="signal_type",ax = axs[2])
+
+        palette ={"go down": "tomato", "go up": "lightblue"}
+        df_melt.signal_type = df_melt.signal_type.map({'up':'go down', 'down': 'go up'})
+        sns.violinplot(data=df_melt, x="time", y="value", hue="signal_type",ax = axs[2], split=True, gap=0.1, inner="quart",palette = palette, linewidth=0.8)
         axs[2].axhline(y=0, color='grey', linestyle='--')
         axs[2].set_title('signal type expected returns distribution at different time lapses')
 
@@ -2830,7 +2843,7 @@ class signal_analyser_object:
         if self.return_fig:
             return fig
 
-    def create_backtest_signal(self,days_strategy, test_size, feature_name, high_exit = False, low_exit = False):
+    def create_backtest_signal(self,days_strategy, test_size, feature_name, high_exit = False, low_exit = False, signal_position = False):
         """
         perform backtest signal analysis
 
@@ -2841,7 +2854,8 @@ class signal_analyser_object:
         feature_name (str): name of the feature to assess
         high_exit (float): high exit thrshold return in backtest
         low_exit (float): loss exit thrshold return in backtest
-
+        signal_position (int): if true, the signal is taken at the given step after the signal end
+        
         Returns
         -------
         fig (obj): plots
@@ -2887,19 +2901,28 @@ class signal_analyser_object:
         dft['chain_id'] = dft['chain_id'].fillna(method = 'ffill')
 
         dft['internal_rn'] = dft.sort_values(['Date']).groupby(['chain_id']).cumcount() + 1
-        dft['flag'] = np.where(dft['internal_rn'] < days_strategy, 1,0)
-
+        
         dft['lrets_bench'] = np.log(dft[asset_1]/dft[asset_1].shift(1))
         dft['bench_prod'] = dft['lrets_bench'].cumsum()
         dft['bench_prod_exp'] = np.exp(dft['bench_prod']) - 1
 
+        if signal_position:
+            dft['open_long'] = np.where(dft.last_in_chain == True, True, np.nan)
+            dft['open_long'] = dft.groupby(['chain_id'])['open_long'].shift(signal_position)
+            dft['flag'] = np.where(dft['internal_rn'] < days_strategy + signal_position, 1,0)
+            dft['flag'] = dft.groupby(['chain_id'])['flag'].shift(signal_position)
+        else:
+            dft['open_long'] = np.where(dft.last_in_chain == True, True, np.nan)
+            dft['flag'] = np.where(dft['internal_rn'] < days_strategy, 1,0)
+            
         if high_exit and low_exit:
-            dft['open_strat'] = np.where(dft.last_in_chain == True, dft.Open, np.nan)
+            dft['open_strat'] = np.where(dft.open_long == True, dft.Open, np.nan)
             dft['open_strat'] = dft['open_strat'].fillna(method = 'ffill')
             dft['open_strat'] = np.where(dft.flag == 1, dft.open_strat, np.nan)
             dft['high_strat_ret'] = (dft['High']/dft['open_strat']-1)*100
             dft['low_strat_ret'] = (dft['Low']/dft['open_strat']-1)*100
-            dft['high_exit'] =  np.where(((dft['high_strat_ret'] >= high_exit) | (dft['internal_rn'] == days_strategy)), 1, np.nan)
+            dft['max_step_chain'] = dft.groupby(['chain_id'])['internal_rn'].transform('max')
+            dft['high_exit'] =  np.where(((dft['high_strat_ret'] >= high_exit) | (dft['internal_rn'] == days_strategy) | (dft['max_step_chain'] == dft['internal_rn'])), 1, np.nan)
             dft['low_exit'] =  np.where((dft['low_strat_ret'] <= low_exit), -1, np.nan)
 
             dft["exit_type"] = dft[["high_exit", "low_exit"]].max(axis=1)
@@ -2916,8 +2939,10 @@ class signal_analyser_object:
             dft['exit_step'] = np.where(dft.exit == 1, dft.internal_rn, np.nan)
             dft['exit_step'] = dft.sort_values(['Date']).groupby(['chain_id']).exit_step.transform('max')
 
-            dft['flag'] = np.where(dft.internal_rn <= dft.exit_step, 1, 0)
-            dft = dft.drop(columns = ['open_strat', 'high_strat_ret', 'low_strat_ret','exit_step', 'exit','exit_type','high_exit','low_exit', 'max_internal_rn'])
+            if signal_position:
+                dft['flag'] = np.where( (dft.internal_rn >= signal_position + 1) & (dft.internal_rn <= dft.exit_step) , 1,0)
+            else:
+                dft['flag'] = np.where(dft.internal_rn <= dft.exit_step, 1, 0)
 
         dft['lrets_strat'] = np.log(dft[asset_1].shift(-1)/dft[asset_1]) * dft['flag']
         dft['lrets_strat'] = np.where(dft['lrets_strat'].isna(),-0.0,dft['lrets_strat'])
@@ -2945,9 +2970,11 @@ class signal_analyser_object:
             print('----------------------------')
 
         fig = plt.figure(1)
-        plt.plot(dft.bench_prod_exp.values, label = 'benchmark')
+        plt.plot(dft.bench_prod_exp.values, label = 'benchmark', color = 'steelblue')
         plt.scatter(range(len(dft)),np.where(dft[low_signal] == 1,dft.bench_prod_exp.values,np.nan),color = 'red', label = 'signal')
-        plt.plot(dft.strat_prod_exp.values, label = 'strategy')
+        plt.plot(dft.strat_prod_exp.values, label = 'strategy', color = 'darksalmon')
+        plt.xlabel("index")
+        plt.ylabel("comulative return")
         plt.legend()
         plt.title('strategy and cumulative returns based on signal strategy')
         if self.show_plot:
@@ -2958,14 +2985,11 @@ class signal_analyser_object:
             result_plot_name = f'signals_strategy_return_{feature_name}.png'
 
             plt.savefig(self.save_path+result_plot_name)
-            # pickle.dump(fig, open(self.save_path+result_plot_name, 'wb'))
 
             with open(self.save_path+result_json_name, "w") as outfile:
                 json.dump(messages, outfile)
 
         if self.save_path and self.save_aws:
-            # upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.ticket_name}/'+result_json_name ,input_path = self.save_path+result_json_name)
-            # upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.ticket_name}/'+result_plot_name,input_path = self.save_path+result_plot_name)
 
             upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = self.save_aws + result_json_name, input_path = self.save_path + result_json_name, aws_credentials = self.aws_credentials)
             upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = self.save_aws + result_plot_name, input_path = self.save_path + result_plot_name, aws_credentials = self.aws_credentials)
