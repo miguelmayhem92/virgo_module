@@ -1278,7 +1278,9 @@ class produce_plotly_plots:
         if self.save_path and self.save_aws:
             # upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{self.ticket_name}/'+result_json_name ,input_path = self.save_path+result_json_name)
             upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = self.save_aws + result_json_name, input_path = self.save_path + result_json_name, aws_credentials = self.aws_credentials)
-
+        if self.return_figs:
+            return fig
+        
 def plot_hmm_analysis_logger(data_frame,test_data_size, save_path = False, show_plot = True):
     '''
     display box plots train and test of hmm state returns
