@@ -1157,8 +1157,8 @@ class produce_plotly_plots:
         date_execution = datetime.datetime.today().strftime('%Y-%m-%d')
         current_step = df.iloc[-1,:].hmm_chain_order
         current_state = df.iloc[-1,:].hmm_feature
-        message1 = 'current state: ' +  str(current_state)
-        message2 = 'current step in state: ' + str(current_step)
+        message1 = str(current_state)
+        message2 = str(current_step)
         message3 = str(date_execution)
 
         messages = {
