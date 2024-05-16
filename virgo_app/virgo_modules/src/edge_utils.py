@@ -8,6 +8,7 @@ from feature_engine.selection import DropFeatures, DropCorrelatedFeatures
 from feature_engine.imputation import  MeanMedianImputer
 from virgo_modules.src.ticketer_source import FeatureSelector
 from feature_engine.discretisation import EqualWidthDiscretiser
+from feature_engine.datetime import DatetimeFeatures
 
 from .ticketer_source import VirgoWinsorizerFeature, InverseHyperbolicSine
 
@@ -215,7 +216,9 @@ def data_processing_pipeline_classifier(
         features_base,features_to_drop = False, winsorizer_conf = False, discretize_columns = False,
         bins_discretize = 10, correlation = 0.85, fillna = True,
         invhypervolsin_features = False,
-        pipeline_order = 'selector//winzorizer//discretizer//median_inputer//drop//correlation'):
+        date_features_list = False,
+        pipeline_order = 'selector//winzorizer//discretizer//median_inputer//drop//correlation'
+        ):
 
     '''
     pipeline builder
@@ -229,6 +232,7 @@ def data_processing_pipeline_classifier(
                     correlation (float): correlation threshold to discard correlated features
                     fillna (boolean): if true to fill na features
                     invhypervolsin_features (list): list of features to apply inverse hyperbolic sine
+                    date_features_list (list): list of features to compute from Date field. (list of features from feature_engine)
                     pipeline_order (str): custom pipeline order eg. selector//winzorizer//discretizer//median_inputer//drop//correlation
             Returns:
                     pipe (obj): pipeline object
@@ -240,6 +244,7 @@ def data_processing_pipeline_classifier(
     drop_corr = [('drop_corr', DropCorrelatedFeatures(threshold=correlation, method = 'spearman'))] if correlation else []
     median_imputer_pipe = [('median_imputer', MeanMedianImputer())] if fillna else []
     invhypersin_pipe = [('invhypervolsin scaler', InverseHyperbolicSine(features = invhypervolsin_features))] if invhypervolsin_features else []
+    datetimeFeatures_pipe = [('date features', DatetimeFeatures(features_to_extract = date_features_list, variables = 'Date', drop_original = False))] if date_features_list else []
 
     pipe_dictionary = {
         'selector': select_pipe,
@@ -249,6 +254,7 @@ def data_processing_pipeline_classifier(
         'correlation': drop_corr,
         'median_inputer':median_imputer_pipe,
         'arcsinh_scaler': invhypersin_pipe,
+        'date_features': datetimeFeatures_pipe,
     }
 
     pipeline_steps = pipeline_order.split('//')
