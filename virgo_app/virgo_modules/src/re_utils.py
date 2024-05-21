@@ -1028,7 +1028,6 @@ class produce_plotly_plots:
         if len(states_subtitles)%2 == 1:
             states_subtitles = states_subtitles + [None]
 
-
         fig = make_subplots(
             rows= rows_subplot, cols=2,
             specs = [[{"type": "scatter"},{"type": "scatter"}]]*state_rows,
@@ -1107,6 +1106,11 @@ class produce_plotly_plots:
         df_ = df[['Date','hmm_feature','Close',"chain_return"]].sort_values('Date')
         df_['Daily_Returns'] = df['Close'].pct_change(7)
 
+        df_agg_returns = df_.groupby('hmm_feature', as_index = False).agg(median =('Daily_Returns','median')).copy()
+        current_state = df_.iloc[-1,:].hmm_feature
+        medain_state_return = df_agg_returns[ df_agg_returns.hmm_feature == current_state]['median'].values[0]
+        type_state = 'low state' if medain_state_return < 0 else 'high state'
+
         for state in states:
             dfi = df_[df_.hmm_feature == state]
             fig.add_trace(go.Box(y = dfi.chain_return, name=str(state),showlegend=False, marker_color = color_map[state] ),row=1, col=1)
@@ -1151,7 +1155,6 @@ class produce_plotly_plots:
                 fig.add_trace(go.Box(x = dfi.importance, name=str(feature),showlegend=False ),row=2, col=2)
             fig.update_yaxes(visible=False, title="feature",row=2, col=2)
 
-        
         fig.update_layout(height=height_plot, width=1600, title_text = f'State model analysis: {self.ticket_name}', coloraxis=dict(colorbar_len=0.50))
 
         date_execution = datetime.datetime.today().strftime('%Y-%m-%d')
@@ -1165,6 +1168,7 @@ class produce_plotly_plots:
             'current state':message1,
             'current step in state': message2,
             'execution date':message3,
+            'type state':type_state,
         }
         
         if self.show_plot:
@@ -1196,6 +1200,7 @@ class produce_plotly_plots:
         
         if self.return_figs:
             return fig, messages
+        
     def produce_forecasting_plot(self,predictions):
         """
         display forecasting plots
