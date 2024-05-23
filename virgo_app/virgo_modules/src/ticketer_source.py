@@ -383,6 +383,8 @@ class stock_eda_panel(object):
         perfom fast stochastic oscilator or william indicator
     vortex_feature(window=int, threshold=float, plot=boolean, save_features=boolean):
         perform vortex oscilator
+    minmax_pricefeature(type_func=str, window=int, distance=bolean, save_features=boolean)
+        get relative price/ distance feature with respect to the min/max price in a given window
     pair_index_feature(pair_symbol=str, feature_label=str, window=int, threshold=float, plot=boolean, save_features=boolean):
         perform additional asset ROC feature, then a new feature is created in the main dataframe
     produce_order_features(feature_name=str, save_features=boolean):
@@ -1698,6 +1700,70 @@ class stock_eda_panel(object):
         if plot:
             self.signal_plotter(feature_name)
 
+    def minmax_pricefeature(self, type_func, window, distance = False, save_features = False):
+        """
+        perform relative price/distance with respect to the min/max price in a given time scope
+
+        Parameters
+        ----------
+        type_func (str): either min or max
+        window (int): window scope
+        distance (boolean): if true, get distance feature else relative feature
+        save_features (boolean): True to save feature configuration and feature names
+        
+        Returns
+        -------
+        None
+        """
+        if type_func == 'min':
+            self.df['Price_ref'] = self.df[['Open','High', 'Low','Close']].min(axis = 1)
+        elif type_func == 'max':
+            self.df['Price_ref'] = self.df[['Open','High', 'Low','Close']].max(axis = 1)
+
+        init_shape = self.df.shape[0]
+        df_date = self.df[['Date','Price_ref']].rename(columns = {'Date':'Date_ref'}).copy()
+        
+        self.df = self.df.rename(columns = {'Price_ref':'Price_to_use'})
+        
+        if type_func == 'min':
+            self.df[f'window_price'] = (self.df.sort_values("Date")["Price_to_use"].transform(lambda x: x.rolling(window, min_periods=1).min()))
+        elif type_func == 'max':
+            self.df[f'window_price'] = (self.df.sort_values("Date")["Price_to_use"].transform(lambda x: x.rolling(window, min_periods=1).max()))
+        
+        
+        self.df = self.df.merge(df_date, left_on = 'window_price', right_on = 'Price_ref', how = 'left')
+        self.df['date_span'] = self.df['Date'] - self.df['Date_ref']
+        
+        self.df['RN'] = self.df.sort_values(['date_span'], ascending=False).groupby(['Date']).cumcount() + 1
+        self.df = self.df[self.df['RN'] == 1]
+
+        if distance:
+            self.df[f'{type_func}_distance_to_price'] = pd.to_numeric(self.df['date_span'].dt.days, downcast='integer')
+
+        if not distance:
+            if type_func == 'min':
+                self.df[f'{type_func}_relprice'] = self.df['Price_to_use']/self.df['window_price']-1
+            
+            if type_func == 'max':
+                self.df[f'{type_func}_relprice'] = self.df['window_price']/self.df['Price_to_use']-1
+        
+        self.df = self.df.drop(columns = ['RN', 'date_span', 'Price_to_use', 'window_price', 'Date_ref','Price_ref'])
+        
+        end_shape = self.df.shape[0]
+
+        if init_shape != end_shape:
+            raise Exception("shapes are not the same")
+
+        if save_features:
+            if distance:
+                self.features.append(f'{type_func}_distance_to_price')
+                name_attr = f'{type_func}_distance'
+            if not distance:
+                self.features.append(f'{type_func}_relprice')
+                name_attr = f'{type_func}_relprice'
+                
+            setattr(self,f'settings_{name_attr}_pricefeature' , {'type_func': type_func, 'window': window, 'distance': distance})
+
     def pair_index_feature(self, pair_symbol, feature_label, window, threshold, plot = False, save_features = False):
         """
         perform additional asset ROC feature, then a new feature is created in the main dataframe
@@ -2297,7 +2363,9 @@ class stock_eda_panel(object):
         ## for now this is hard coded
         feature_list = ['spread_ma','relative_spread_ma','pair_feature','count_features','bidirect_count_features','price_range','relative_price_range','rsi_feature',
                         'rsi_feature_v2', 'days_features','days_features_v2', 'volume_feature','smooth_volume', 'roc_feature', 'stoch_feature', 'stochastic_feature',
-                        'william_feature', 'vortex_feature', 'pair_index_feature','hmm']
+                        'william_feature', 'vortex_feature', 'pair_index_feature','hmm',
+                        'min_distance_pricefeature', 'min_relprice_pricefeature', 'max_distance_pricefeature','max_relprice_pricefeature'
+                        ]
 
         for feature in feature_list:
             try:

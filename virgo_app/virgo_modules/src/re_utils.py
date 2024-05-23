@@ -700,7 +700,11 @@ def get_data(ticker_name:str, ticket_settings:dict, n_days:int = False, hmm_avai
         'stochastic_feature':'stochastic_feature',
         'william_feature':'william_feature',
         'vortex_feature':'vortex_feature',
-        'pair_index_feature':'pair_index_feature' # this has a diff structure! 
+        'pair_index_feature':'pair_index_feature', # this has a diff structure!
+        'min_distance_pricefeature':'minmax_pricefeature', 
+        'min_relprice_pricefeature':'minmax_pricefeature', 
+        'max_distance_pricefeature':'minmax_pricefeature',
+        'max_relprice_pricefeature':'minmax_pricefeature',
     }
     exceptions = ['pair_feature','pair_index_feature']
     ### standar feature
