@@ -147,6 +147,109 @@ class FeatureSelector(BaseEstimator, TransformerMixin):
     def transform(self, X, y=None):
         return X[self.columns]
 
+class features_entropy(BaseEstimator, TransformerMixin):
+    """
+    Class that creates a feature that calculate entropy for a given feature classes, but it might get some leackeage in the training set.
+    this class is compatible with scikitlearn pipeline
+
+    Attributes
+    ----------
+    columns : list
+        list of features to select
+    entropy_map: pd.DataFrame
+        dataframe of the map with the entropies per class
+    perc: float
+        percentage of the dates using for calculate the entropy map
+    
+    Methods
+    -------
+    fit(additional="", X=DataFrame, y=None):
+        fit transformation.
+    transform(X=DataFrame, y=None):
+        apply feature transformation
+    """
+    
+    def __init__(self, features, target, feature_name = None, feature_type = 'discrete', perc = 0.5, default_null = 0.99):
+        
+        self.features = features
+        self.feature_type = feature_type
+        self.target = target
+        self.perc = perc
+        self.default_null = default_null
+        
+        if not feature_name:
+            self.feature_name = '_'.join(features)
+            self.feature_name = self.feature_name + '_' + target + '_' + feature_type
+        else:
+            self.feature_name = feature_name
+            
+    def fit(self, X, y=None):
+
+        unique_dates = list(X['Date'].unique())
+        unique_dates.sort()
+        
+        total_length = len(unique_dates)
+        cut = int(round(total_length*self.perc,0))
+        train_dates = unique_dates[:cut]
+        max_train_date = max(train_dates)
+        
+        X_ = X[X['Date'] <= max_train_date]
+        df = pd.merge(X_, y, left_index=True, right_index=True, how = 'left').copy()
+
+        column_list = [f'{self.feature_type}_signal_{colx}' for colx in self.features]
+        
+        df_aggr = (
+            df
+            .groupby(column_list, as_index = False)
+            .apply(
+                lambda x: pd.Series(
+                    dict(
+                        counts = x[self.target].count(),
+                        trues=(x[self.target] == 1).sum(),
+                        falses=(x[self.target] == 0).sum(),
+                    )
+                )
+            )
+            .assign(
+                trues_rate=lambda x: x['trues'] / x['counts']
+            )
+            .assign(
+                falses_rate=lambda x: x['falses'] / x['counts']
+            )
+            .assign(
+                log2_trues = lambda x: np.log2(1/x['trues_rate'])
+            )
+            .assign(
+                log2_falses = lambda x: np.log2(1/x['falses_rate'])
+            )
+            .assign(
+                comp1 = lambda x: x['trues_rate']*x['log2_trues']
+            )
+            .assign(
+                comp2 = lambda x: x['falses_rate']*x['log2_falses']
+            )
+            .assign(
+                class_entropy = lambda x: np.round(x['comp1']+x['comp2'],3)
+            )
+        )
+        
+        self.column_list = column_list
+        self.entropy_map = (
+            df_aggr
+            [column_list+['class_entropy']]
+            .rename(columns = {'class_entropy': self.feature_name})
+            .copy()
+        )
+        
+        del df, df_aggr
+        return self
+
+    def transform(self, X, y=None):
+
+        X = X.merge(self.entropy_map, on=self.column_list, how = 'left')
+        X[self.feature_name] = X[self.feature_name].fillna(self.default_null)
+        return X
+
 def sharpe_ratio(return_series):
 
     '''
