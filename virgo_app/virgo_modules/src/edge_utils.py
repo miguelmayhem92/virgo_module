@@ -10,7 +10,7 @@ from virgo_modules.src.ticketer_source import FeatureSelector
 from feature_engine.discretisation import EqualWidthDiscretiser
 from feature_engine.datetime import DatetimeFeatures
 
-from .ticketer_source import VirgoWinsorizerFeature, InverseHyperbolicSine
+from .ticketer_source import VirgoWinsorizerFeature, InverseHyperbolicSine, FeaturesEntropy
 
 class produce_model_wrapper:
     """
@@ -90,8 +90,8 @@ class produce_model_wrapper:
         self.model = model
         self.pipe_transform = pipe
         self.pipeline = Pipeline([('pipe_transform',self.pipe_transform), ('model',self.model)])
-        self.features_to_model = self.pipe_transform.fit_transform(self.X_train).columns
         self.pipeline.fit(self.X_train, self.y_train)
+        self.features_to_model = self.pipeline[:-1].transform(self.X_train).columns
 
 class register_results():
     """
@@ -217,6 +217,7 @@ def data_processing_pipeline_classifier(
         bins_discretize = 10, correlation = 0.85, fillna = True,
         invhypervolsin_features = False,
         date_features_list = False,
+        entropy_set_list = False,
         pipeline_order = 'selector//winzorizer//discretizer//median_inputer//drop//correlation'
         ):
 
@@ -233,6 +234,7 @@ def data_processing_pipeline_classifier(
                     fillna (boolean): if true to fill na features
                     invhypervolsin_features (list): list of features to apply inverse hyperbolic sine
                     date_features_list (list): list of features to compute from Date field. (list of features from feature_engine)
+                    entropy_set_list (list): list of dictionaries that contains features and targets to compute entropy
                     pipeline_order (str): custom pipeline order eg. selector//winzorizer//discretizer//median_inputer//drop//correlation
             Returns:
                     pipe (obj): pipeline object
@@ -245,7 +247,15 @@ def data_processing_pipeline_classifier(
     median_imputer_pipe = [('median_imputer', MeanMedianImputer())] if fillna else []
     invhypersin_pipe = [('invhypervolsin scaler', InverseHyperbolicSine(features = invhypervolsin_features))] if invhypervolsin_features else []
     datetimeFeatures_pipe = [('date features', DatetimeFeatures(features_to_extract = date_features_list, variables = 'Date', drop_original = False))] if date_features_list else []
-
+    
+    entropy_pipe = list()
+    if entropy_set_list:
+        for setx_ in entropy_set_list:
+            setx = setx_['set'].split('//')
+            target_ = setx_['target']
+            subpipe_name = '_'.join(setx) + 'entropy'
+            entropy_pipe.append((subpipe_name, FeaturesEntropy(features = setx, target = target_)))
+    
     pipe_dictionary = {
         'selector': select_pipe,
         'winzorizer':winzorizer_pipe,
@@ -255,6 +265,7 @@ def data_processing_pipeline_classifier(
         'median_inputer':median_imputer_pipe,
         'arcsinh_scaler': invhypersin_pipe,
         'date_features': datetimeFeatures_pipe,
+        'entropy_features' : entropy_pipe,
     }
 
     pipeline_steps = pipeline_order.split('//')

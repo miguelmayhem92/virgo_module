@@ -147,7 +147,7 @@ class FeatureSelector(BaseEstimator, TransformerMixin):
     def transform(self, X, y=None):
         return X[self.columns]
 
-class features_entropy(BaseEstimator, TransformerMixin):
+class FeaturesEntropy(BaseEstimator, TransformerMixin):
     """
     Class that creates a feature that calculate entropy for a given feature classes, but it might get some leackeage in the training set.
     this class is compatible with scikitlearn pipeline
@@ -193,8 +193,8 @@ class features_entropy(BaseEstimator, TransformerMixin):
         train_dates = unique_dates[:cut]
         max_train_date = max(train_dates)
         
-        X_ = X[X['Date'] <= max_train_date]
-        df = pd.merge(X_, y, left_index=True, right_index=True, how = 'left').copy()
+        X_ = X[X['Date'] <= max_train_date].copy()
+        df = X_.join(y, how = 'left')
 
         column_list = [f'{self.feature_type}_signal_{colx}' for colx in self.features]
         
@@ -241,12 +241,12 @@ class features_entropy(BaseEstimator, TransformerMixin):
             .copy()
         )
         
-        del df, df_aggr
+        del df, df_aggr, X_
         return self
 
     def transform(self, X, y=None):
 
-        X = X.merge(self.entropy_map, on=self.column_list, how = 'left')
+        X = X.join(self.entropy_map.set_index(self.column_list), on=self.column_list, how = 'left')
         X[self.feature_name] = X[self.feature_name].fillna(self.default_null)
         return X
 
@@ -2598,9 +2598,8 @@ class produce_model:
         self.model = model
         self.pipe_transform = pipe
         self.pipeline = Pipeline([('pipe_transform',self.pipe_transform), ('model',self.model)])
-        self.features_to_model = self.pipe_transform.fit_transform(self.X_train).columns
         self.pipeline.fit(self.X_train, self.y_train)
-
+        self.features_to_model = self.pipeline[:-1].transform(self.X_train).columns
 
 class hmm_feature_selector():
     """
