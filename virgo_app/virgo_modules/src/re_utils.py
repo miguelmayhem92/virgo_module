@@ -1378,7 +1378,8 @@ def extract_data_traintest(object_stock,features_to_search,configs, target_confi
         arguments_to_use = configs[feature_name]['config_params']
         method_to_use = configs[feature_name]['method']
         getattr(object_stock, method_to_use)(**arguments_to_use, plot = False, save_features = False)
-        object_stock.produce_order_features(feature_name)
+        if method_to_use not in ['minmax_pricefeature']:
+            object_stock.produce_order_features(feature_name)
     # geting targets
     object_stock.get_categorical_targets(**target_params_up)
     object_stock.df = object_stock.df.drop(columns = ['target_down']).rename(columns = {'target_up':'target_up_save'})

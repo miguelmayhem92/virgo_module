@@ -1803,7 +1803,7 @@ class stock_eda_panel(object):
         if plot:
             self.signal_plotter(feature_name)
 
-    def minmax_pricefeature(self, type_func, window, distance = False, save_features = False):
+    def minmax_pricefeature(self, type_func, window, distance = False, plot = False, save_features = False):
         """
         perform relative price/distance with respect to the min/max price in a given time scope
 
