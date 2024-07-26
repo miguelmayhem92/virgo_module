@@ -50,9 +50,11 @@ class SignalAnalyserObject:
     aws_credentials: dict
     signal_position: int
         if available, signal position to open a position
-    df: pd.DataFrame:
+    df: pd.DataFrame
         transformed data of the selected feature to perform back-test
-
+    median_return: float
+        median return after end low signals
+    
     Methods
     -------
     signal_analyser(days_list=list):
@@ -169,12 +171,19 @@ class SignalAnalyserObject:
             
         df['open_long'] = np.where(df.last_in_chain == True, True, np.nan)
         df['open_short'] = np.where(df.first_in_chain == True, True, np.nan)
+        df.signal_type = df.signal_type.map({'up':'go down', 'down': 'go up'})
+        
+        # median return
+        returns_list = [f'return_{days}d' for days in days_list]
+        df_melt = df[df.open_long == True].pivot_table(index=['signal_type'], values=returns_list, aggfunc='median')
+        df_melt['median'] = df_melt[returns_list].median(axis = 1)
+        self.median_return = df_melt.loc['go up', 'median']
         
         # plotting
         fig, axs = plt.subplots(1, 4, figsize = (20,5))
         palette ={"go down": "tomato", "go up": "lightblue"}
         
-        df2 = df[df.signal_type.isin(['up','down'])]
+        df2 = df[df.signal_type.isin(['go down','go up'])]
         df2['lag_Date'] = df2['Date'].shift(1)
         df2['lag_signal_type'] = df2['signal_type'].shift(1)
         df2 = df2[df2.lag_signal_type != df2.signal_type]
@@ -183,7 +192,6 @@ class SignalAnalyserObject:
         sns.stripplot(data=df2, y="span",ax = axs[0], jitter=True, zorder=1)
         axs[0].set_title('span between last signals')
 
-        df.signal_type = df.signal_type.map({'up':'go down', 'down': 'go up'})
         df_ = df[df.last_in_chain == True]
         df_['part'] = '-'
         sns.violinplot(data=df_, y="internal_rn", x='part', ax = axs[1], hue="signal_type", inner="quart",palette = palette,gap=0.1, split=True, linewidth=0.7)
