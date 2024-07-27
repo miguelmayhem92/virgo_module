@@ -366,3 +366,109 @@ class SignalAnalyserObject:
 
         if self.return_fig:
             return fig, messages
+        
+class IterateSignalAnalyse(SignalAnalyserObject):
+    """
+    object that is going to iterate backtest given a parameter space
+
+    Attributes
+    ----------
+    test_data_size : int
+    feature_name : str
+    days_list: list
+        list of integers that serve as time horizons
+    arguments_to_test : dict
+        paramter space
+    method: str
+        method to use
+    object_stock: obj
+        object containing data and methods
+    plot: boolean
+        show summary plot of median results
+    best_result: float
+        index of the best result, the index corresponds to the parameter space
+
+    Methods
+    -------
+    execute(show_plot_iter=boolean):
+        display plots for every iteration
+    """
+    def __init__(self, test_data_size, feature_name, days_list, arguments_to_test, method, object_stock, plot = False):
+        """
+        Parameters
+        ----------
+        test_data_size (int): size of the test data
+        feature_name (str): name of the feature
+        days_list (list): list of integers that serve as time horizons
+        arguments_to_test (dict): paramter space
+        method (str): method to use
+        object_stock (obj): object containing data and methods
+        plot (boolean): show summary plot of median results
+
+        Returns
+        -------
+        None
+        """
+        self.test_data_size = test_data_size
+        self.feature_name = feature_name
+        self.days_list = days_list
+        self.arguments_to_test = arguments_to_test
+        self.method = method
+        self.plot = plot
+        self.object_stock = object_stock
+        
+    def execute(self,show_plot_iter = False):
+        """
+        Iterate backtest and compute median result for every iteration
+
+        Parameters
+        ----------
+        show_plot_iter  (boolean): display plots for every iteration
+
+        Returns
+        -------
+        None
+        """
+        results = list()
+        for key in self.arguments_to_test.keys():
+            configuration = self.arguments_to_test.get(key)
+            getattr(self.object_stock, self.method)(**configuration)
+            signal_assess = SignalAnalyserObject(self.object_stock.df, self.object_stock.stock_code, show_plot = show_plot_iter, test_size = self.test_data_size, feature_name = self.feature_name)
+            signal_assess.signal_analyser(days_list = self.days_list)
+            mean_median_return = signal_assess.median_return
+            results.append(mean_median_return)
+            
+        df_result = pd.DataFrame({'keys':self.arguments_to_test.keys(),'results':results})
+        if self.plot:
+            plt.plot(df_result['keys'], df_result['results'])
+            plt.scatter(df_result['keys'], df_result['results'])
+            plt.title('simulation between configurations')
+            plt.ylabel('median expected return')
+            plt.show()
+    
+        best_result = df_result.sort_values('results',ascending = False)['keys'].values[0]
+        self.best_result = best_result
+
+def execute_signal_analyser(test_data_size, feature_name, days_list, configuration, method, object_stock, analyser_object, plot = False, backtest= False, exit_params = {}):
+    '''
+    code snippet that is going run backtest and display analysis messages and plots
+
+            Parameters:
+                    test_data_size (int): test data size
+                    feature_name (str): name of the feature to assess
+                    days_list (list): tome scope to assess the returns
+                    configuration (dict): parameters of the method to run
+                    object_stock (obj): object with data to assess
+                    method (str): method to use
+                    analyser_object (obj): signal_analyser object
+                    plot (boolean): if true, plot results
+                    backtest (boolean): if true, run backtest 
+                    exit_params (dict): parameters of exit returns
+
+            Returns:
+                    None
+    '''
+    getattr(object_stock, method)(**configuration)
+    signal_assess = analyser_object(object_stock.df,object_stock.stock_code,show_plot = plot, feature_name = feature_name, test_size = test_data_size)
+    signal_assess.signal_analyser(days_list = days_list)
+    signal_assess.create_backtest_signal(backtest, open_in_list = ['down','up'], **exit_params )
