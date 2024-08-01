@@ -975,7 +975,7 @@ class produce_plotly_plots:
             for signal_low in signal_low_list:
                 if signal_low in df.columns:
                     fig.add_trace(go.Scatter(x=df['Date'], y=np.where(df[signal_low] == 1, df[norm_feat], np.nan),showlegend= False, mode='markers', marker_color = 'red'),col = 1, row = row_i)
-
+            fig.add_hline(y=0, line_width=2, line_dash="dash", line_color="grey",col = 1, row = row_i)
         fig.update_layout(height=height_plot, width=1600, title_text = f'asset plot and signals: {self.ticket_name}')
 
         ## state plot with close prices
@@ -1457,7 +1457,7 @@ def produce_simple_ts_from_model(stock_code, configs, n_days = 2000 , window_sco
         for signal_low in signal_low_list:
             if signal_low in df.columns:
                 fig.add_trace(go.Scatter(x=df['Date'], y=np.where(df[signal_low] == 1, df[norm_feat], np.nan),showlegend= False, mode='markers', marker_color = 'red'),col = 1, row = row_i)
-                
+        fig.add_hline(y=0, line_width=2, line_dash="dash", line_color="grey",col = 1, row = row_i)
     fig.update_layout(height=height_plot, width=1600, title_text = f'asset plot and signals: {stock_code}')
 
     del object_stock

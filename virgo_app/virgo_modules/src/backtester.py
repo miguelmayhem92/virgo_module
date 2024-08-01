@@ -339,7 +339,7 @@ class SignalAnalyserObject:
             axs_.plot(dft.strat_prod_exp.values, label = 'strategy', color = 'darksalmon')
             axs_.set_xlabel("index")
             axs_.set_ylabel("comulative return")
-            axs_.set_title(f'{map_[open_in]} strategy and cumulative returns based on signals')
+            axs_.set_title(f'{map_[open_in]} strategy and cumulative returns')
             axs_.legend()
             
         if self.show_plot:
