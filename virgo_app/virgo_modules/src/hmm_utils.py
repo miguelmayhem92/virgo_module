@@ -101,10 +101,10 @@ class trainer_hmm():
             ('drop_correlated', DropCorrelatedFeatures(method='spearman',threshold=self.__corr_thrshold)),
         ])
 
-        features_hmm = list(transform_pipe.fit_transform(self.__data_train).columns)
+        # features_hmm = list(transform_pipe.fit_transform(self.__data_train).columns)
         # n_features = len(features_hmm)
         # startprob_prior =  np.array([1/self.__n_clusters]*self.__n_clusters)
-        transmat_prior = np.diag([0.50]*self.__n_clusters)
+        transmat_prior = np.diag([0.70]*self.__n_clusters)
         # means_prior = np.array([1/n_features]*n_features)
         pipeline_hmm = Pipeline([
             ('transfrom_pipe', transform_pipe),
