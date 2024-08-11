@@ -54,6 +54,8 @@ from .aws_utils import upload_file_to_aws
 
 import logging
 
+from virgo_modules.src.hmm_utils import trainer_hmm
+
 class InverseHyperbolicSine(BaseEstimator, TransformerMixin):
 
     """
@@ -1012,58 +1014,58 @@ class stock_eda_panel(object):
 
     #######################
     #### to be deprecated ####
-    def spread_MA(self, ma1, ma2, limit = 1.95, plot = False, save_features = False):
+    # def spread_MA(self, ma1, ma2, limit = 1.95, plot = False, save_features = False):
 
-        self.df[f'MA_{ma1}'] = (self.df.sort_values("Date")["Close"].transform(lambda x: x.rolling(ma1, min_periods=1).mean()))
-        self.df[f'MA_{ma2}'] = (self.df.sort_values("Date")["Close"].transform(lambda x: x.rolling(ma2, min_periods=1).mean()))
+    #     self.df[f'MA_{ma1}'] = (self.df.sort_values("Date")["Close"].transform(lambda x: x.rolling(ma1, min_periods=1).mean()))
+    #     self.df[f'MA_{ma2}'] = (self.df.sort_values("Date")["Close"].transform(lambda x: x.rolling(ma2, min_periods=1).mean()))
 
-        self.ma1_column = f'MA_{ma1}'
-        self.ma2_column = f'MA_{ma2}'
-        self.df['MA_spread'] = self.df[f'MA_{ma1}'] - self.df[f'MA_{ma2}']
+    #     self.ma1_column = f'MA_{ma1}'
+    #     self.ma2_column = f'MA_{ma2}'
+    #     self.df['MA_spread'] = self.df[f'MA_{ma1}'] - self.df[f'MA_{ma2}']
 
-        self.df['norm_MA_spread'] =  (self.df['MA_spread'] - self.df['MA_spread'].mean())/self.df['MA_spread'].std()
-        mean_ = self.df['norm_MA_spread'].mean()
-        self.df['rollstd_MA_spread'] = self.df.sort_values("Date")["norm_MA_spread"].rolling(50).std()
+    #     self.df['norm_MA_spread'] =  (self.df['MA_spread'] - self.df['MA_spread'].mean())/self.df['MA_spread'].std()
+    #     mean_ = self.df['norm_MA_spread'].mean()
+    #     self.df['rollstd_MA_spread'] = self.df.sort_values("Date")["norm_MA_spread"].rolling(50).std()
 
-        self.df['upper_MA_spread'] = limit*self.df['rollstd_MA_spread'] + mean_
-        self.df['lower_MA_spread'] = -limit*self.df['rollstd_MA_spread'] + mean_
+    #     self.df['upper_MA_spread'] = limit*self.df['rollstd_MA_spread'] + mean_
+    #     self.df['lower_MA_spread'] = -limit*self.df['rollstd_MA_spread'] + mean_
 
-        self.df['signal_low_MA_spread'] = np.where( (self.df['norm_MA_spread'] < self.df['lower_MA_spread'] ), 1, 0)
-        self.df['signal_up_MA_spread'] = np.where( (self.df['norm_MA_spread'] > self.df['upper_MA_spread'] ), 1, 0)
+    #     self.df['signal_low_MA_spread'] = np.where( (self.df['norm_MA_spread'] < self.df['lower_MA_spread'] ), 1, 0)
+    #     self.df['signal_up_MA_spread'] = np.where( (self.df['norm_MA_spread'] > self.df['upper_MA_spread'] ), 1, 0)
 
-        ### ploting purposes
-        self.df[f"Roll_mean_{ma1}"] = (
-            self.df.sort_values("Date")["Close"]
-            .transform(lambda x: x.rolling(ma1, min_periods=1).mean())
-        )
-        self.df[f"Roll_mean_{ma2}"] = (
-            self.df.sort_values("Date")["Close"]
-            .transform(lambda x: x.rolling(ma2, min_periods=1).mean())
-        )
+    #     ### ploting purposes
+    #     self.df[f"Roll_mean_{ma1}"] = (
+    #         self.df.sort_values("Date")["Close"]
+    #         .transform(lambda x: x.rolling(ma1, min_periods=1).mean())
+    #     )
+    #     self.df[f"Roll_mean_{ma2}"] = (
+    #         self.df.sort_values("Date")["Close"]
+    #         .transform(lambda x: x.rolling(ma2, min_periods=1).mean())
+    #     )
 
 
-        print('--------------------------------------------------------------------')
-        if save_features:
-            self.features.append('MA_spread')
-            self.signals.append('signal_low_MA_spread')
-            self.signals.append('signal_up_MA_spread')
-            self.settings_spread_ma = {'ma1':ma1, 'ma2':ma2, 'limit':limit}
+    #     print('--------------------------------------------------------------------')
+    #     if save_features:
+    #         self.features.append('MA_spread')
+    #         self.signals.append('signal_low_MA_spread')
+    #         self.signals.append('signal_up_MA_spread')
+    #         self.settings_spread_ma = {'ma1':ma1, 'ma2':ma2, 'limit':limit}
 
-        if plot:
+    #     if plot:
 
-            fig, axs = plt.subplots(1, 3,figsize=(21,4))
+    #         fig, axs = plt.subplots(1, 3,figsize=(21,4))
 
-            axs[0].plot(self.df['Date'],self.df['norm_MA_spread'])
-            axs[0].plot(self.df['Date'],self.df['upper_MA_spread'], linestyle='--')
-            axs[0].plot(self.df['Date'],self.df['lower_MA_spread'], linestyle='--')
-            axs[0].set_title('MA_spread series')
+    #         axs[0].plot(self.df['Date'],self.df['norm_MA_spread'])
+    #         axs[0].plot(self.df['Date'],self.df['upper_MA_spread'], linestyle='--')
+    #         axs[0].plot(self.df['Date'],self.df['lower_MA_spread'], linestyle='--')
+    #         axs[0].set_title('MA_spread series')
 
-            plot_acf(self.df['MA_spread'].dropna(),lags=25, ax=axs[1])
-            axs[1].set_title('acf MA_spread series')
+    #         plot_acf(self.df['MA_spread'].dropna(),lags=25, ax=axs[1])
+    #         axs[1].set_title('acf MA_spread series')
 
-            plot_pacf(self.df['MA_spread'].dropna(),lags=25, ax=axs[2])
-            axs[2].set_title('acf MA_spread series')
-            plt.show()
+    #         plot_pacf(self.df['MA_spread'].dropna(),lags=25, ax=axs[2])
+    #         axs[2].set_title('acf MA_spread series')
+    #         plt.show()
     ##################################################
 
     def relative_spread_MA(self, ma1, ma2, threshold = 1.95, plot = False, save_features = False):
@@ -1250,32 +1252,32 @@ class stock_eda_panel(object):
 
     #######################
     #### to be deprecated ####
-    def get_count_feature(self, rolling_window, threshold, plot = False, save_features = False):
+    # def get_count_feature(self, rolling_window, threshold, plot = False, save_features = False):
 
-        # negative countiing and rolling countingng
-        self.df['RetClose'] = self.df['Close'].pct_change()
-        self.df['roll_pos_counting'] = np.where(self.df['RetClose'].shift(1) > 0,1,0 )
-        self.df['roll_pos_counting'] = self.df['roll_pos_counting'].rolling(window = rolling_window).sum()
+    #     # negative countiing and rolling countingng
+    #     self.df['RetClose'] = self.df['Close'].pct_change()
+    #     self.df['roll_pos_counting'] = np.where(self.df['RetClose'].shift(1) > 0,1,0 )
+    #     self.df['roll_pos_counting'] = self.df['roll_pos_counting'].rolling(window = rolling_window).sum()
 
-        mean = self.df['roll_pos_counting'].mean()
-        std = self.df['roll_pos_counting'].std()
-        self.df['norm_counting'] =  (self.df['roll_pos_counting'] - mean )/std
+    #     mean = self.df['roll_pos_counting'].mean()
+    #     std = self.df['roll_pos_counting'].std()
+    #     self.df['norm_counting'] =  (self.df['roll_pos_counting'] - mean )/std
 
-        self.df['signal_up_roll_pos_counting'] = np.where((self.df['norm_counting'] > threshold),1,0)
-        self.df['signal_low_roll_pos_counting'] = np.where((self.df['norm_counting'] < -threshold),1,0)
+    #     self.df['signal_up_roll_pos_counting'] = np.where((self.df['norm_counting'] > threshold),1,0)
+    #     self.df['signal_low_roll_pos_counting'] = np.where((self.df['norm_counting'] < -threshold),1,0)
 
-        if save_features:
-            self.features.append('roll_pos_counting')
-            self.signals.append('signal_up_roll_pos_counting')
-            self.signals.append('signal_low_roll_pos_counting')
-            self.settings_count_features = {'rolling_window':rolling_window, 'threshold':threshold}
+    #     if save_features:
+    #         self.features.append('roll_pos_counting')
+    #         self.signals.append('signal_up_roll_pos_counting')
+    #         self.signals.append('signal_low_roll_pos_counting')
+    #         self.settings_count_features = {'rolling_window':rolling_window, 'threshold':threshold}
 
-        if plot:
-            fig = plt.figure(figsize = (10,4))
-            plt.plot(self.df['Date'],self.df.norm_counting)
-            plt.axhline(y=threshold, color='grey', linestyle='--')
-            plt.axhline(y=-threshold, color='grey', linestyle='--')
-            plt.show()
+    #     if plot:
+    #         fig = plt.figure(figsize = (10,4))
+    #         plt.plot(self.df['Date'],self.df.norm_counting)
+    #         plt.axhline(y=threshold, color='grey', linestyle='--')
+    #         plt.axhline(y=-threshold, color='grey', linestyle='--')
+    #         plt.show()
     #######################
 
     def bidirect_count_feature(self, rolling_window, threshold, plot = False, save_features = False):
@@ -1319,41 +1321,41 @@ class stock_eda_panel(object):
 
     #######################
     #### to be deprecated ####
-    def get_range_feature(self, window, up_threshold, low_threshold, plot = False, save_features = False):
+    # def get_range_feature(self, window, up_threshold, low_threshold, plot = False, save_features = False):
 
-        self.df["Range"] = self.df["High"] / self.df["Low"] - 1
-        self.df['Avg_range'] = self.df['Range'].rolling(window = 5).mean()
-        self.df['dist_range'] = self.df['Range'] - self.df['Avg_range']
-        self.df['norm_dist_range'] = (self.df['dist_range'] - self.df['dist_range'].mean())/ self.df['dist_range'].std()
+    #     self.df["Range"] = self.df["High"] / self.df["Low"] - 1
+    #     self.df['Avg_range'] = self.df['Range'].rolling(window = 5).mean()
+    #     self.df['dist_range'] = self.df['Range'] - self.df['Avg_range']
+    #     self.df['norm_dist_range'] = (self.df['dist_range'] - self.df['dist_range'].mean())/ self.df['dist_range'].std()
 
-        mean_ = self.df['norm_dist_range'].mean()
-        self.df[f'std_norm_dist_range'] = (self.df.sort_values("Date")["norm_dist_range"].transform(lambda x: x.rolling(window, min_periods=1).std()))
+    #     mean_ = self.df['norm_dist_range'].mean()
+    #     self.df[f'std_norm_dist_range'] = (self.df.sort_values("Date")["norm_dist_range"].transform(lambda x: x.rolling(window, min_periods=1).std()))
 
-        self.df['up_bound_norm_dist_range'] = up_threshold*self.df['std_norm_dist_range'] + mean_
-        self.df['low_bound_norm_dist_range'] = -low_threshold*self.df['std_norm_dist_range'] + mean_
+    #     self.df['up_bound_norm_dist_range'] = up_threshold*self.df['std_norm_dist_range'] + mean_
+    #     self.df['low_bound_norm_dist_range'] = -low_threshold*self.df['std_norm_dist_range'] + mean_
 
-        self.df['signal_up_dist_range'] = np.where(self.df['norm_dist_range'] > self.df['up_bound_norm_dist_range'],1,0 )
-        self.df['signal_low_dist_range'] = np.where(self.df['norm_dist_range'] < self.df['low_bound_norm_dist_range'],1,0 )
+    #     self.df['signal_up_dist_range'] = np.where(self.df['norm_dist_range'] > self.df['up_bound_norm_dist_range'],1,0 )
+    #     self.df['signal_low_dist_range'] = np.where(self.df['norm_dist_range'] < self.df['low_bound_norm_dist_range'],1,0 )
 
-        if save_features:
-            self.features.append('dist_range')
-            self.signals.append('signal_up_dist_range')
-            self.signals.append('signal_low_dist_range')
-            self.settings_price_range = {'window':window, 'up_threshold':up_threshold, 'low_threshold':low_threshold}
+    #     if save_features:
+    #         self.features.append('dist_range')
+    #         self.signals.append('signal_up_dist_range')
+    #         self.signals.append('signal_low_dist_range')
+    #         self.settings_price_range = {'window':window, 'up_threshold':up_threshold, 'low_threshold':low_threshold}
 
-        if plot:
-            fig, axs = plt.subplots(2, 2,figsize=(17,11))
+    #     if plot:
+    #         fig, axs = plt.subplots(2, 2,figsize=(17,11))
 
-            axs[0,0].plot(self.df['Range'])
-            axs[0,0].set_title('range')
+    #         axs[0,0].plot(self.df['Range'])
+    #         axs[0,0].set_title('range')
 
-            axs[0,1].plot(self.df['Avg_range'])
-            axs[0,1].set_title('Avg_range')
+    #         axs[0,1].plot(self.df['Avg_range'])
+    #         axs[0,1].set_title('Avg_range')
 
-            axs[1,0].plot(self.df['up_bound_norm_dist_range'],color = 'grey', linestyle='--')
-            axs[1,0].plot(self.df['low_bound_norm_dist_range'],color = 'grey', linestyle='--')
-            axs[1,0].plot(self.df['norm_dist_range'])
-            axs[1,0].set_title('norm_dist_range')
+    #         axs[1,0].plot(self.df['up_bound_norm_dist_range'],color = 'grey', linestyle='--')
+    #         axs[1,0].plot(self.df['low_bound_norm_dist_range'],color = 'grey', linestyle='--')
+    #         axs[1,0].plot(self.df['norm_dist_range'])
+    #         axs[1,0].set_title('norm_dist_range')
     #######################
 
     def get_relative_range_feature(self, window, threshold, plot = False, save_features = False):
@@ -1401,38 +1403,38 @@ class stock_eda_panel(object):
 
     #######################
     #### to be deprecated ####
-    def rsi_feature(self, window, lag_rsi_ret, threshold, plot = False, save_features = False):
+    # def rsi_feature(self, window, lag_rsi_ret, threshold, plot = False, save_features = False):
 
-        rsi = RSIIndicator(close = self.df['Close'], window = window).rsi()
-        self.df['RSI'] = rsi
-        self.df['RSI_ret'] = self.df['RSI']/self.df['RSI'].shift(lag_rsi_ret)
+    #     rsi = RSIIndicator(close = self.df['Close'], window = window).rsi()
+    #     self.df['RSI'] = rsi
+    #     self.df['RSI_ret'] = self.df['RSI']/self.df['RSI'].shift(lag_rsi_ret)
 
-        mean = self.df['RSI_ret'].mean()
-        std = self.df['RSI_ret'].std()
-        self.df['norm_RSI_ret'] = (self.df['RSI_ret']-mean)/std
-        self.df['signal_up_RSI_ret'] = np.where(self.df['norm_RSI_ret'] > threshold,1,0)
-        self.df['signal_low_RSI_ret'] = np.where(self.df['norm_RSI_ret'] < -threshold,1,0)
+    #     mean = self.df['RSI_ret'].mean()
+    #     std = self.df['RSI_ret'].std()
+    #     self.df['norm_RSI_ret'] = (self.df['RSI_ret']-mean)/std
+    #     self.df['signal_up_RSI_ret'] = np.where(self.df['norm_RSI_ret'] > threshold,1,0)
+    #     self.df['signal_low_RSI_ret'] = np.where(self.df['norm_RSI_ret'] < -threshold,1,0)
 
-        if save_features:
-            self.features.append('RSI_ret')
-            self.signals.append('signal_up_RSI_ret')
-            self.signals.append('signal_low_RSI_ret')
-            self.settings_rsi_feature= {'window':window, 'lag_rsi_ret':lag_rsi_ret, 'threshold':threshold}
+    #     if save_features:
+    #         self.features.append('RSI_ret')
+    #         self.signals.append('signal_up_RSI_ret')
+    #         self.signals.append('signal_low_RSI_ret')
+    #         self.settings_rsi_feature= {'window':window, 'lag_rsi_ret':lag_rsi_ret, 'threshold':threshold}
 
-        if plot:
-            fig, axs = plt.subplots(1, 3,figsize=(17,5))
+    #     if plot:
+    #         fig, axs = plt.subplots(1, 3,figsize=(17,5))
 
-            axs[0].plot(self.df.norm_RSI_ret)
-            axs[0].axhline(y=threshold, color='grey', linestyle='--')
-            axs[0].axhline(y=-threshold, color='grey', linestyle='--')
+    #         axs[0].plot(self.df.norm_RSI_ret)
+    #         axs[0].axhline(y=threshold, color='grey', linestyle='--')
+    #         axs[0].axhline(y=-threshold, color='grey', linestyle='--')
 
-            plot_acf(self.df['RSI_ret'].dropna(),lags=25,ax = axs[1])
-            axs[1].set_title('acf RSI_ret')
+    #         plot_acf(self.df['RSI_ret'].dropna(),lags=25,ax = axs[1])
+    #         axs[1].set_title('acf RSI_ret')
 
-            plot_pacf(self.df['RSI_ret'].dropna(),lags=25,ax = axs[2])
-            axs[2].set_title('pacf RSI_ret')
+    #         plot_pacf(self.df['RSI_ret'].dropna(),lags=25,ax = axs[2])
+    #         axs[2].set_title('pacf RSI_ret')
 
-            fig.show()
+    #         fig.show()
     #######################
 
     def rsi_feature_improved(self, window, threshold, plot = False, save_features = False):
@@ -1464,47 +1466,47 @@ class stock_eda_panel(object):
 
     #######################
     #### to be deprecated ####
-    def days_features(self, window_day, limit, plot = False, save_features = False):
+    # def days_features(self, window_day, limit, plot = False, save_features = False):
 
-        self.df['dow'] = self.df.Date.dt.dayofweek
-        self.df['dow'] = self.df['dow'].astype('str')
+    #     self.df['dow'] = self.df.Date.dt.dayofweek
+    #     self.df['dow'] = self.df['dow'].astype('str')
 
-        self.df['target_mean_input'] = (self.df.sort_values("Date").groupby('dow')['roll_mean_log_return'].transform(lambda x: x.rolling(window_day, min_periods=1).mean()))
+    #     self.df['target_mean_input'] = (self.df.sort_values("Date").groupby('dow')['roll_mean_log_return'].transform(lambda x: x.rolling(window_day, min_periods=1).mean()))
 
-        mean = self.df['target_mean_input'].mean()
-        std = self.df['target_mean_input'].std()
+    #     mean = self.df['target_mean_input'].mean()
+    #     std = self.df['target_mean_input'].std()
 
-        self.df['norm_dow_input'] = (self.df['target_mean_input']-mean)/std
-        mean_ = self.df['norm_dow_input'].mean()
-        self.df['std_dow_input'] = self.df.sort_values("Date")["norm_dow_input"].rolling(50).std()
+    #     self.df['norm_dow_input'] = (self.df['target_mean_input']-mean)/std
+    #     mean_ = self.df['norm_dow_input'].mean()
+    #     self.df['std_dow_input'] = self.df.sort_values("Date")["norm_dow_input"].rolling(50).std()
 
-        self.df['up_dow_input'] = limit*self.df['std_dow_input'] + mean_
-        self.df['low_dow_input'] = -limit*self.df['std_dow_input'] - mean_
+    #     self.df['up_dow_input'] = limit*self.df['std_dow_input'] + mean_
+    #     self.df['low_dow_input'] = -limit*self.df['std_dow_input'] - mean_
 
-        self.df['signal_up_target_mean_input'] = np.where(self.df['norm_dow_input'] > self.df['up_dow_input'],1,0)
-        self.df['signal_low_target_mean_input'] = np.where(self.df['norm_dow_input'] < self.df['low_dow_input'],1,0)
+    #     self.df['signal_up_target_mean_input'] = np.where(self.df['norm_dow_input'] > self.df['up_dow_input'],1,0)
+    #     self.df['signal_low_target_mean_input'] = np.where(self.df['norm_dow_input'] < self.df['low_dow_input'],1,0)
 
-        if save_features:
+    #     if save_features:
 
-            self.features.append('target_mean_input')
-            self.signals.append('signal_up_target_mean_input')
-            self.signals.append('signal_low_target_mean_input')
-            self.settings_days_features = {'window_day':window_day, 'limit':limit}
+    #         self.features.append('target_mean_input')
+    #         self.signals.append('signal_up_target_mean_input')
+    #         self.signals.append('signal_low_target_mean_input')
+    #         self.settings_days_features = {'window_day':window_day, 'limit':limit}
 
-        if plot:
-            fig, axs = plt.subplots(1, 3,figsize=(17,5))
+    #     if plot:
+    #         fig, axs = plt.subplots(1, 3,figsize=(17,5))
 
-            axs[0].plot(self.df['norm_dow_input'])
-            axs[0].plot(self.df['up_dow_input'], linestyle='--')
-            axs[0].plot(self.df['low_dow_input'], linestyle='--')
+    #         axs[0].plot(self.df['norm_dow_input'])
+    #         axs[0].plot(self.df['up_dow_input'], linestyle='--')
+    #         axs[0].plot(self.df['low_dow_input'], linestyle='--')
 
-            plot_acf(self.df['norm_dow_input'].dropna(),lags=25,ax = axs[1])
-            axs[1].set_title('acf day feature')
+    #         plot_acf(self.df['norm_dow_input'].dropna(),lags=25,ax = axs[1])
+    #         axs[1].set_title('acf day feature')
 
-            plot_pacf(self.df['norm_dow_input'].dropna(),lags=25,ax = axs[2])
-            axs[2].set_title('pacf day feature')
+    #         plot_pacf(self.df['norm_dow_input'].dropna(),lags=25,ax = axs[2])
+    #         axs[2].set_title('pacf day feature')
 
-            fig.show()
+    #         fig.show()
     #######################
 
     def days_features_bands(self, window, threshold, plot = False, save_features = False):
@@ -1541,58 +1543,58 @@ class stock_eda_panel(object):
 
     #######################
     #### to be deprecated ####
-    def analysis_volume(self,lag_volume, threshold, window, plot = False, save_features = False):
+    # def analysis_volume(self,lag_volume, threshold, window, plot = False, save_features = False):
 
-        self.df['log_Volume'] = np.log(self.df['Volume'])
-        self.df['ret_log_Volume'] = self.df['log_Volume'].pct_change(lag_volume)
+    #     self.df['log_Volume'] = np.log(self.df['Volume'])
+    #     self.df['ret_log_Volume'] = self.df['log_Volume'].pct_change(lag_volume)
 
-        self.df['norm_ret_log_Volume'] = (self.df['ret_log_Volume'] - self.df['ret_log_Volume'].mean())/ self.df['ret_log_Volume'].std()
-        mean_ = self.df['norm_ret_log_Volume'].mean()
-        self.df[f'std_norm_ret_log_Volume'] = (self.df.sort_values("Date")["norm_ret_log_Volume"].transform(lambda x: x.rolling(window, min_periods=1).std()))
+    #     self.df['norm_ret_log_Volume'] = (self.df['ret_log_Volume'] - self.df['ret_log_Volume'].mean())/ self.df['ret_log_Volume'].std()
+    #     mean_ = self.df['norm_ret_log_Volume'].mean()
+    #     self.df[f'std_norm_ret_log_Volume'] = (self.df.sort_values("Date")["norm_ret_log_Volume"].transform(lambda x: x.rolling(window, min_periods=1).std()))
 
-        self.df['up_bound_ret_log_Volume'] = threshold*self.df['std_norm_ret_log_Volume'] + mean_
-        self.df['low_bound_ret_log_Volume'] = -threshold*self.df['std_norm_ret_log_Volume'] + mean_
+    #     self.df['up_bound_ret_log_Volume'] = threshold*self.df['std_norm_ret_log_Volume'] + mean_
+    #     self.df['low_bound_ret_log_Volume'] = -threshold*self.df['std_norm_ret_log_Volume'] + mean_
 
-        self.df['signal_up_ret_log_Volume'] = np.where(self.df['norm_ret_log_Volume'] > self.df['up_bound_ret_log_Volume'],1,0 )
-        self.df['signal_low_ret_log_Volume'] = np.where(self.df['norm_ret_log_Volume'] < self.df['low_bound_ret_log_Volume'],1,0 )
+    #     self.df['signal_up_ret_log_Volume'] = np.where(self.df['norm_ret_log_Volume'] > self.df['up_bound_ret_log_Volume'],1,0 )
+    #     self.df['signal_low_ret_log_Volume'] = np.where(self.df['norm_ret_log_Volume'] < self.df['low_bound_ret_log_Volume'],1,0 )
 
-        if save_features:
-            self.features.append('ret_log_Volume')
-            self.signals.append('signal_up_ret_log_Volume')
-            self.signals.append('signal_low_ret_log_Volume')
-            self.settings_volume_feature= {'lag_volume':lag_volume, 'threshold':threshold, 'window':window}
-        if plot:
-            fig, axs = plt.subplots(3, 2,figsize=(11,13))
-            axs[0,0].plot(self.df.Date, self.df.Volume)
-            axs[0,0].set_title('Volume')
-            axs[0,1].plot(self.df.Date, self.df.log_Volume)
-            axs[0,1].set_title('log Volume')
+    #     if save_features:
+    #         self.features.append('ret_log_Volume')
+    #         self.signals.append('signal_up_ret_log_Volume')
+    #         self.signals.append('signal_low_ret_log_Volume')
+    #         self.settings_volume_feature= {'lag_volume':lag_volume, 'threshold':threshold, 'window':window}
+    #     if plot:
+    #         fig, axs = plt.subplots(3, 2,figsize=(11,13))
+    #         axs[0,0].plot(self.df.Date, self.df.Volume)
+    #         axs[0,0].set_title('Volume')
+    #         axs[0,1].plot(self.df.Date, self.df.log_Volume)
+    #         axs[0,1].set_title('log Volume')
 
-            plot_acf(self.df['log_Volume'].dropna(),lags=25, ax = axs[1,0])
-            axs[1,0].set_title('acf log_Volume')
-            plot_pacf(self.df['log_Volume'].dropna(),lags=25, ax = axs[1,1])
-            axs[1,1].set_title('pacf log_Volume')
+    #         plot_acf(self.df['log_Volume'].dropna(),lags=25, ax = axs[1,0])
+    #         axs[1,0].set_title('acf log_Volume')
+    #         plot_pacf(self.df['log_Volume'].dropna(),lags=25, ax = axs[1,1])
+    #         axs[1,1].set_title('pacf log_Volume')
 
-            plot_acf(self.df['ret_log_Volume'].dropna(),lags=25, ax = axs[2,0])
-            axs[2,0].set_title('acf ret_log_Volume')
-            plot_pacf(self.df['ret_log_Volume'].dropna(),lags=25, ax = axs[2,1])
-            axs[2,1].set_title('pacf ret_log_Volume')
+    #         plot_acf(self.df['ret_log_Volume'].dropna(),lags=25, ax = axs[2,0])
+    #         axs[2,0].set_title('acf ret_log_Volume')
+    #         plot_pacf(self.df['ret_log_Volume'].dropna(),lags=25, ax = axs[2,1])
+    #         axs[2,1].set_title('pacf ret_log_Volume')
 
-            plt.show()
+    #         plt.show()
 
-            print('--------------------------------------------------------------')
+    #         print('--------------------------------------------------------------')
 
-            fig, axs = plt.subplots(1, 2,figsize=(10,4))
+    #         fig, axs = plt.subplots(1, 2,figsize=(10,4))
 
-            axs[0].plot(self.df.Date, self.df.norm_ret_log_Volume)
-            axs[0].plot(self.df.Date, self.df.up_bound_ret_log_Volume)
-            axs[0].plot(self.df.Date, self.df.low_bound_ret_log_Volume)
-            axs[0].set_title('norm_ret_log_Volume')
+    #         axs[0].plot(self.df.Date, self.df.norm_ret_log_Volume)
+    #         axs[0].plot(self.df.Date, self.df.up_bound_ret_log_Volume)
+    #         axs[0].plot(self.df.Date, self.df.low_bound_ret_log_Volume)
+    #         axs[0].set_title('norm_ret_log_Volume')
 
-            axs[1].plot(self.df.Date, self.df.std_norm_ret_log_Volume)
-            axs[1].set_title('std_norm_ret_log_Volume')
+    #         axs[1].plot(self.df.Date, self.df.std_norm_ret_log_Volume)
+    #         axs[1].set_title('std_norm_ret_log_Volume')
 
-            plt.show()
+    #         plt.show()
     #######################
 
     def analysis_smooth_volume(self, window, threshold, plot = False, save_features = False):
@@ -1968,14 +1970,12 @@ class stock_eda_panel(object):
         self.df["chain_id"] = self.df["chain_id"].fillna(method='ffill')
         self.df["hmm_chain_order"] = self.df.groupby('chain_id')["Date"].rank(method="first", ascending=True)
 
-        ### returns using the first element in a chain
-        self.df['first'] = np.where(self.df['hmm_chain_order'] == 1, self.df['Close'], np.nan)
-        self.df['first'] = self.df.sort_values('Date')['first'].fillna(method='ffill')
-        self.df['chain_return'] = (self.df['Close']/self.df['first'] -1) * 100
+        ### returns using the windowsseeds
+        self.df['lag_chain_close'] = self.df.sort_values(by=["Date"]).groupby(['chain_id'])['Close'].shift(lag_returns)
+        self.df['chain_return'] = (self.df['Close']/self.df['lag_chain_close'] -1) * 100
+        self.df = self.df.drop(columns = ['breack'])
 
-        self.df = self.df.drop(columns = ['breack','first'])
-
-    def cluster_hmm_analysis(self, n_clusters,features_hmm, test_data_size, seed, lag_returns_state=7, plot = False, save_features = False, model = False):
+    def cluster_hmm_analysis(self, n_clusters,features_hmm, test_data_size, seed, lag_returns_state=7, corr_threshold = 0.75, plot = False, save_features = False, model = False):
         """
         create or use a hmm model
 
@@ -1986,6 +1986,7 @@ class stock_eda_panel(object):
         test_data_size (int): size of the test data. Note that the remaining is going to be used as training data
         seed (int): seed for the model inizialization
         lag_returns_state (int) : lags for returns of the state
+        corr_threshold (float): correlation threshold for initial feature selection
         plot (boolean): True to display hmm states analysis
         save_features (boolean): True to save features and configurations
         model (obj): if provided, no model will be trainend and the provided model will be used to get hmm features
@@ -1997,16 +1998,12 @@ class stock_eda_panel(object):
         if not model:
 
             df_new = self.df
-            pipeline_hmm = Pipeline([
-                ('selector', FeatureSelector(columns=features_hmm)),
-                ('fillna', MeanMedianImputer(imputation_method='median',variables=features_hmm)),
-                ('hmm',GaussianHMM(n_components =  n_clusters, covariance_type = 'full', random_state = seed))
-                ])
             data_train = df_new.iloc[:-test_data_size,:]
             data_test = df_new.iloc[-test_data_size:,:]
 
-            pipeline_hmm.fit(data_train)
-
+            th = trainer_hmm(data_train, features_hmm, n_clusters=n_clusters,corr_thrshold=corr_threshold, seed = seed)
+            th.train()
+            pipeline_hmm = th.hmm_model
             self.model_hmm = pipeline_hmm
             self.test_data_hmm = data_test
 
@@ -2034,7 +2031,7 @@ class stock_eda_panel(object):
         if save_features:
             self.features.append('hmm_feature')
             self.features.append('hmm_chain_order')
-            self.settings_hmm = {'n_clusters':n_clusters,'features_hmm':features_hmm, 'test_data_size':test_data_size, 'seed':seed,'lag_returns_state':lag_returns_state }
+            self.settings_hmm = {'n_clusters':n_clusters,'features_hmm':features_hmm, 'test_data_size':test_data_size, 'seed':seed,'lag_returns_state':lag_returns_state, 'corr_threshold':corr_threshold }
 
         if plot:
 
