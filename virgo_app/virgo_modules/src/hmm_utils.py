@@ -2,7 +2,7 @@ from hmmlearn.hmm import GaussianHMM
 
 from sklearn.pipeline import Pipeline
 from feature_engine.imputation import MeanMedianImputer
-from virgo_modules.src.ticketer_source import FeatureSelector
+from virgo_modules.src.transformer_utils import FeatureSelector
 from feature_engine.selection import DropCorrelatedFeatures
 from sklearn.preprocessing import RobustScaler
 
@@ -14,7 +14,59 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import seaborn as sns; sns.set()
 
-from virgo_modules.src.ticketer_source import FeatureSelector, states_relevance_score
+def states_relevance_score(data, default_benchmark_sd = 0.00003, t_threshold = 2):
+    '''
+    calculate relevance score and summary report for hmm model 
+
+            Parameters:
+                    default_benchmark_sd (float): default value to bias SD for t calculation
+                    t_threshold (float): alpha or z threshold for the normalized score
+
+            Returns:
+                    mean_relevance (float): mean relevance score of the states
+                    cluster_returns (pd.DataFrame): summary report of the analysis
+                    number_relevant_states (int): number of relevant states
+    '''
+    ## legnths
+    cluster_lengths = data.groupby(['hmm_feature','chain_id'],as_index = False).agg(chain_lenght = ('hmm_chain_order','max'))
+    cluster_lengths = cluster_lengths.groupby('hmm_feature').agg(cluster_length_median = ('chain_lenght','median'))
+    ## means
+    def quantile2(x):
+        return x.quantile(0.25)
+    def quantile3(x):
+        return x.quantile(0.75)
+
+    cluster_returns = data.groupby('hmm_feature').agg(
+        n_uniques = ('chain_id','nunique'),
+        n_obs = ('Date','count'),
+        cluster_ret_q25 = ('chain_return',quantile2),
+        cluster_ret_median = ('chain_return','median'),
+        cluster_ret_q75 = ('chain_return',quantile3),
+    )
+    cluster_returns =  cluster_returns.join(cluster_lengths, how = 'left')
+    cluster_returns['perc_dispute'] = np.where(
+        np.sign(cluster_returns['cluster_ret_q25']) != np.sign(cluster_returns['cluster_ret_q75']),
+        1,0
+    )
+    cluster_returns['iqr'] = cluster_returns.cluster_ret_q75 - cluster_returns.cluster_ret_q25
+    cluster_returns['perc_25'] = abs(cluster_returns.cluster_ret_q25)/cluster_returns['iqr']
+    cluster_returns['perc_75'] = abs(cluster_returns.cluster_ret_q75)/cluster_returns['iqr']
+    cluster_returns['min_perc'] = cluster_returns[['perc_25','perc_75']].min(axis = 1)
+    cluster_returns['min_overlap'] = np.where(cluster_returns['perc_dispute'] == 1,cluster_returns['min_perc'],0)
+    cluster_returns['abs_median'] = abs(cluster_returns['cluster_ret_median'])
+    cluster_returns = cluster_returns.drop(columns = ['perc_25','perc_75','min_perc'])
+
+    ## relevance or importance
+    # naive aproach
+    cluster_returns['relevance'] =  cluster_returns['abs_median'] + ( 0.5 - cluster_returns['min_overlap'])
+    cluster_returns['t_calc'] = (cluster_returns['cluster_ret_median'] - 0)/(cluster_returns['iqr']/cluster_returns['n_obs'] + default_benchmark_sd/cluster_returns['n_obs'])**(1/2)
+    cluster_returns['abs_t_accpted'] = abs(cluster_returns['t_calc'])
+    cluster_returns['t_accpted'] = abs(cluster_returns['abs_t_accpted']) > t_threshold
+
+    mean_relevance = cluster_returns['abs_t_accpted'].mean()
+    number_relevant_states = len(cluster_returns[cluster_returns.t_accpted == True])
+
+    return mean_relevance, cluster_returns, number_relevant_states
 
 def create_hmm_derived_features(df, lag_returns):
     """

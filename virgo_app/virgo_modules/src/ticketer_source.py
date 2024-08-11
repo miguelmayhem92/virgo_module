@@ -36,7 +36,6 @@ from hmmlearn.hmm import GaussianHMM
 
 from plotly.colors import DEFAULT_PLOTLY_COLORS
 
-from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.pipeline import Pipeline
 from feature_engine.imputation import MeanMedianImputer
 
@@ -55,253 +54,7 @@ from .aws_utils import upload_file_to_aws
 import logging
 
 from virgo_modules.src.hmm_utils import trainer_hmm
-
-class InverseHyperbolicSine(BaseEstimator, TransformerMixin):
-
-    """
-    Class that applies inverse hyperbolic sine for feature transformation.
-    this class is compatible with scikitlearn pipeline
-
-    Attributes
-    ----------
-    features : list
-        list of features to apply the transformation
-    prefix : str
-        prefix for the new features. is '' the features are overwrite
-
-    Methods
-    -------
-    fit(additional="", X=DataFrame, y=None):
-        fit transformation.
-    transform(X=DataFrame, y=None):
-        apply feature transformation
-    """
-
-    def __init__(self, features, prefix = ''):
-        self.features = features
-        self.prefix = prefix
-
-    def fit(self, X, y=None):
-        return self
-
-    def transform(self, X, y=None):
-        for feature in self.features:
-            X[f'{self.prefix}{feature}'] = np.arcsinh(X[feature])
-        return X
-
-class VirgoWinsorizerFeature(BaseEstimator, TransformerMixin):
-
-    """
-    Class that applies winsorirization of a feature for feature transformation.
-    this class is compatible with scikitlearn pipeline
-
-    Attributes
-    ----------
-    feature_configs : dict
-        dictionary of features and configurations. the configuration has high and low limits per feature
-
-    Methods
-    -------
-    fit(additional="", X=DataFrame, y=None):
-        fit transformation.
-    transform(X=DataFrame, y=None):
-        apply feature transformation
-    """
-
-    def __init__(self, feature_configs):
-        self.feature_configs = feature_configs
-    def fit(self, X, y=None):
-        return self
-
-    def transform(self, X, y=None):
-        for feature in self.feature_configs:
-            lower = self.feature_configs[feature]['min']
-            upper = self.feature_configs[feature]['max']
-            X[feature] = np.where( lower > X[feature], lower, X[feature])
-            X[feature] = np.where( upper < X[feature], upper, X[feature])
-        return X
-
-class FeatureSelector(BaseEstimator, TransformerMixin):
-
-    """
-    Class that applies selection of features.
-    this class is compatible with scikitlearn pipeline
-
-    Attributes
-    ----------
-    columns : list
-        list of features to select
-
-    Methods
-    -------
-    fit(additional="", X=DataFrame, y=None):
-        fit transformation.
-    transform(X=DataFrame, y=None):
-        apply feature transformation
-    """
-
-    def __init__(self, columns):
-        self.columns = columns
-
-    def fit(self, X, y=None):
-        return self
-
-    def transform(self, X, y=None):
-        return X[self.columns]
-
-class FeaturesEntropy(BaseEstimator, TransformerMixin):
-    """
-    Class that creates a feature that calculate entropy for a given feature classes, but it might get some leackeage in the training set.
-    this class is compatible with scikitlearn pipeline
-
-    Attributes
-    ----------
-    columns : list
-        list of features to select
-    entropy_map: pd.DataFrame
-        dataframe of the map with the entropies per class
-    perc: float
-        percentage of the dates using for calculate the entropy map
-    
-    Methods
-    -------
-    fit(additional="", X=DataFrame, y=None):
-        fit transformation.
-    transform(X=DataFrame, y=None):
-        apply feature transformation
-    """
-    
-    def __init__(self, features, target, feature_name = None, feature_type = 'discrete', perc = 0.5, default_null = 0.99):
-        
-        self.features = features
-        self.feature_type = feature_type
-        self.target = target
-        self.perc = perc
-        self.default_null = default_null
-        
-        if not feature_name:
-            self.feature_name = '_'.join(features)
-            self.feature_name = self.feature_name + '_' + target + '_' + feature_type
-        else:
-            self.feature_name = feature_name
-            
-    def fit(self, X, y=None):
-
-        unique_dates = list(X['Date'].unique())
-        unique_dates.sort()
-        
-        total_length = len(unique_dates)
-        cut = int(round(total_length*self.perc,0))
-        train_dates = unique_dates[:cut]
-        max_train_date = max(train_dates)
-        
-        X_ = X[X['Date'] <= max_train_date].copy()
-        df = X_.join(y, how = 'left')
-
-        column_list = [f'{self.feature_type}_signal_{colx}' for colx in self.features]
-        
-        df_aggr = (
-            df
-            .groupby(column_list, as_index = False)
-            .apply(
-                lambda x: pd.Series(
-                    dict(
-                        counts = x[self.target].count(),
-                        trues=(x[self.target] == 1).sum(),
-                        falses=(x[self.target] == 0).sum(),
-                    )
-                )
-            )
-            .assign(
-                trues_rate=lambda x: x['trues'] / x['counts']
-            )
-            .assign(
-                falses_rate=lambda x: x['falses'] / x['counts']
-            )
-            .assign(
-                log2_trues = lambda x: np.log2(1/x['trues_rate'])
-            )
-            .assign(
-                log2_falses = lambda x: np.log2(1/x['falses_rate'])
-            )
-            .assign(
-                comp1 = lambda x: x['trues_rate']*x['log2_trues']
-            )
-            .assign(
-                comp2 = lambda x: x['falses_rate']*x['log2_falses']
-            )
-            .assign(
-                class_entropy = lambda x: np.round(x['comp1']+x['comp2'],3)
-            )
-        )
-        
-        self.column_list = column_list
-        self.entropy_map = (
-            df_aggr
-            [column_list+['class_entropy']]
-            .rename(columns = {'class_entropy': self.feature_name})
-            .copy()
-        )
-        
-        del df, df_aggr, X_
-        return self
-
-    def transform(self, X, y=None):
-
-        X = X.join(self.entropy_map.set_index(self.column_list), on=self.column_list, how = 'left')
-        X[self.feature_name] = X[self.feature_name].fillna(self.default_null)
-        return X
-
-class signal_combiner(BaseEstimator, TransformerMixin):
-
-    """
-    Class that applies feature combination of binary signals.
-    this class is compatible with scikitlearn pipeline
-
-    ...
-
-    Attributes
-    ----------
-    columns : list
-        list of features to select
-    drop : boolean
-        drop combining features
-    prefix_up : str
-        up prefix of the base feature
-    prefix_low : str
-        low prefix of the base feature
-
-    Methods
-    -------
-    fit(additional="", X=DataFrame, y=None):
-        fit transformation.
-    transform(X=DataFrame, y=None):
-        apply feature transformation
-    """
-
-    def __init__(self, columns, drop = True, prefix_up = 'signal_up_', prefix_low = 'signal_low_'):
-        self.columns = columns
-        self.drop = drop
-        self.prefix_up = prefix_up
-        self.prefix_low = prefix_low
-
-    def fit(self, X, y=None):
-        return self
-
-    def transform(self, X, y=None):
-        for column in self.columns:
-            X['CombSignal_'+column] = np.where(
-                X[self.prefix_up + column] == 1,
-                1,
-                np.where(
-                    X[self.prefix_low + column] == 1,
-                    1,
-                    0
-                )
-            )
-            if self.drop:
-                X = X.drop(columns = [self.prefix_up + column, self.prefix_low + column])
-        return X
+from virgo_modules.src.transformer_utils import signal_combiner, FeatureSelector
 
 def data_processing_pipeline(features_base,features_to_drop = False, lag_dict = False, combine_signals = False, discretize_columns = False, correlation = 0.77):
 
@@ -336,61 +89,6 @@ def data_processing_pipeline(features_base,features_to_drop = False, lag_dict = 
         drop_pipe
     )
     return pipe
-
-def states_relevance_score(data, default_benchmark_sd = 0.00003, t_threshold = 2):
-    '''
-    calculate relevance score and summary report for hmm model 
-
-            Parameters:
-                    default_benchmark_sd (float): default value to bias SD for t calculation
-                    t_threshold (float): alpha or z threshold for the normalized score
-
-            Returns:
-                    mean_relevance (float): mean relevance score of the states
-                    cluster_returns (pd.DataFrame): summary report of the analysis
-                    number_relevant_states (int): number of relevant states
-    '''
-    ## legnths
-    cluster_lengths = data.groupby(['hmm_feature','chain_id'],as_index = False).agg(chain_lenght = ('hmm_chain_order','max'))
-    cluster_lengths = cluster_lengths.groupby('hmm_feature').agg(cluster_length_median = ('chain_lenght','median'))
-    ## means
-    def quantile2(x):
-        return x.quantile(0.25)
-    def quantile3(x):
-        return x.quantile(0.75)
-
-    cluster_returns = data.groupby('hmm_feature').agg(
-        n_uniques = ('chain_id','nunique'),
-        n_obs = ('Date','count'),
-        cluster_ret_q25 = ('chain_return',quantile2),
-        cluster_ret_median = ('chain_return','median'),
-        cluster_ret_q75 = ('chain_return',quantile3),
-    )
-    cluster_returns =  cluster_returns.join(cluster_lengths, how = 'left')
-    cluster_returns['perc_dispute'] = np.where(
-        np.sign(cluster_returns['cluster_ret_q25']) != np.sign(cluster_returns['cluster_ret_q75']),
-        1,0
-    )
-    cluster_returns['iqr'] = cluster_returns.cluster_ret_q75 - cluster_returns.cluster_ret_q25
-    cluster_returns['perc_25'] = abs(cluster_returns.cluster_ret_q25)/cluster_returns['iqr']
-    cluster_returns['perc_75'] = abs(cluster_returns.cluster_ret_q75)/cluster_returns['iqr']
-    cluster_returns['min_perc'] = cluster_returns[['perc_25','perc_75']].min(axis = 1)
-    cluster_returns['min_overlap'] = np.where(cluster_returns['perc_dispute'] == 1,cluster_returns['min_perc'],0)
-    cluster_returns['abs_median'] = abs(cluster_returns['cluster_ret_median'])
-    cluster_returns = cluster_returns.drop(columns = ['perc_25','perc_75','min_perc'])
-
-    ## relevance or importance
-    # naive aproach
-    cluster_returns['relevance'] =  cluster_returns['abs_median'] + ( 0.5 - cluster_returns['min_overlap'])
-    cluster_returns['t_calc'] = (cluster_returns['cluster_ret_median'] - 0)/(cluster_returns['iqr']/cluster_returns['n_obs'] + default_benchmark_sd/cluster_returns['n_obs'])**(1/2)
-    cluster_returns['abs_t_accpted'] = abs(cluster_returns['t_calc'])
-    cluster_returns['t_accpted'] = abs(cluster_returns['abs_t_accpted']) > t_threshold
-
-    mean_relevance = cluster_returns['abs_t_accpted'].mean()
-    number_relevant_states = len(cluster_returns[cluster_returns.t_accpted == True])
-
-    return mean_relevance, cluster_returns, number_relevant_states
-
 
 class stock_eda_panel(object):
 
@@ -2579,213 +2277,213 @@ class produce_model:
         self.pipeline.fit(self.X_train, self.y_train)
         self.features_to_model = self.pipeline[:-1].transform(self.X_train).columns
 
-class hmm_feature_selector():
-    """
-    class that is going to train hmm models to perform feature selection
+# class hmm_feature_selector():
+#     """
+#     class that is going to train hmm models to perform feature selection
 
-    Attributes
-    ----------
-    data  : pd.DataFrame
-        symbol of the asset
-    n_clusters : int
-        number of clusters to search
-    init_features_hmm : list
-        list of features to consider in the search
-    test_data_size :int
-        test data size, meaning that the remaining is going to be used as training data
-    select_n_features : int
-        number of features to select
-    n_trials : int
-        total number of trials per combination
-    limit_search : int
-        limit number of combinations
-    default_benchmark_sd : float
-        default value to bias standard deviation
-    t_threshold : float
-        alpha or z threshold
-    pipeline_hmm: obj
-        pipeline object of the hmm model
-    features_used_in_model:list
-        features in model
-    train_model(features_hmm=list):
-        train hmm model
-    feature_combinations: list
-        list of combination of features
-    mean_relevance: float
-        relevance score of the model
-    best_features: list
-        list of best performing features
+#     Attributes
+#     ----------
+#     data  : pd.DataFrame
+#         symbol of the asset
+#     n_clusters : int
+#         number of clusters to search
+#     init_features_hmm : list
+#         list of features to consider in the search
+#     test_data_size :int
+#         test data size, meaning that the remaining is going to be used as training data
+#     select_n_features : int
+#         number of features to select
+#     n_trials : int
+#         total number of trials per combination
+#     limit_search : int
+#         limit number of combinations
+#     default_benchmark_sd : float
+#         default value to bias standard deviation
+#     t_threshold : float
+#         alpha or z threshold
+#     pipeline_hmm: obj
+#         pipeline object of the hmm model
+#     features_used_in_model:list
+#         features in model
+#     train_model(features_hmm=list):
+#         train hmm model
+#     feature_combinations: list
+#         list of combination of features
+#     mean_relevance: float
+#         relevance score of the model
+#     best_features: list
+#         list of best performing features
 
-    Methods
-    -------
-    split_data():
-        split data in train and test
-    train_model(features_hmm=list):
-        train hmm model
-    feature_list_generator():
-        perform combination of features
-    get_error():
-        get error or score of a given model using relevance score
-    execute_selector():
-        select the best combination of features
-    """
-    def __init__(self, data, n_clusters, init_features_hmm, test_data_size, select_n_features, n_trials = 1,limit_search = False, default_benchmark_sd = 0.00003, t_threshold = 2):
-        """
-        Initialize object
+#     Methods
+#     -------
+#     split_data():
+#         split data in train and test
+#     train_model(features_hmm=list):
+#         train hmm model
+#     feature_list_generator():
+#         perform combination of features
+#     get_error():
+#         get error or score of a given model using relevance score
+#     execute_selector():
+#         select the best combination of features
+#     """
+#     def __init__(self, data, n_clusters, init_features_hmm, test_data_size, select_n_features, n_trials = 1,limit_search = False, default_benchmark_sd = 0.00003, t_threshold = 2):
+#         """
+#         Initialize object
 
-        Parameters
-        ----------
-        data (pd.DataFrame): data
-        n_clusters (int): number of clusters to search
-        init_features_hmm (list): list of features to consider in the search
-        test_data_siz:(int:  test data size, meaning that the remaining is going to be used as training data
-        select_n_features (int): number of features to select
-        n_trials (int): total number of trials per combination
-        limit_search (int): limit number of combinations
-        default_benchmark_sd (float): default value to bias standard deviation
-        t_threshold (float): alpha or z threshold
+#         Parameters
+#         ----------
+#         data (pd.DataFrame): data
+#         n_clusters (int): number of clusters to search
+#         init_features_hmm (list): list of features to consider in the search
+#         test_data_siz:(int:  test data size, meaning that the remaining is going to be used as training data
+#         select_n_features (int): number of features to select
+#         n_trials (int): total number of trials per combination
+#         limit_search (int): limit number of combinations
+#         default_benchmark_sd (float): default value to bias standard deviation
+#         t_threshold (float): alpha or z threshold
 
-        Returns
-        -------
-        None
-        """
-        self.data = data.copy()
-        self.n_clusters = n_clusters
-        self.init_features_hmm = init_features_hmm
-        self.test_data_size = test_data_size
-        self.select_n_features = select_n_features
-        self.n_trials = n_trials
-        self.limit_search= limit_search
-        self.default_benchmark_sd = default_benchmark_sd
-        self.t_threshold = t_threshold
+#         Returns
+#         -------
+#         None
+#         """
+#         self.data = data.copy()
+#         self.n_clusters = n_clusters
+#         self.init_features_hmm = init_features_hmm
+#         self.test_data_size = test_data_size
+#         self.select_n_features = select_n_features
+#         self.n_trials = n_trials
+#         self.limit_search= limit_search
+#         self.default_benchmark_sd = default_benchmark_sd
+#         self.t_threshold = t_threshold
 
-    def split_data(self):
-        """
-        split data in train and test
+#     def split_data(self):
+#         """
+#         split data in train and test
 
-        Parameters
-        ----------
-        None
+#         Parameters
+#         ----------
+#         None
 
-        Returns
-        -------
-        None
-        """
-        self.data_train = self.data.iloc[:-self.test_data_size,:]
-        self.data_test = self.data.iloc[-self.test_data_size:,:]
+#         Returns
+#         -------
+#         None
+#         """
+#         self.data_train = self.data.iloc[:-self.test_data_size,:]
+#         self.data_test = self.data.iloc[-self.test_data_size:,:]
 
-    def train_model(self,features_hmm):
-        """
-        train hmm model
+#     def train_model(self,features_hmm):
+#         """
+#         train hmm model
 
-        Parameters
-        ----------
-        features_hmm (list): list of features to be selected in the model
+#         Parameters
+#         ----------
+#         features_hmm (list): list of features to be selected in the model
 
-        Returns
-        -------
-        None
-        """
-        pipeline_hmm = Pipeline([
-                ('selector', FeatureSelector(columns=features_hmm)),
-                ('fillna', MeanMedianImputer(imputation_method='median',variables=features_hmm)),
-                ('hmm',GaussianHMM(n_components =  self.n_clusters, covariance_type = 'full'))
-                ])
+#         Returns
+#         -------
+#         None
+#         """
+#         pipeline_hmm = Pipeline([
+#                 ('selector', FeatureSelector(columns=features_hmm)),
+#                 ('fillna', MeanMedianImputer(imputation_method='median',variables=features_hmm)),
+#                 ('hmm',GaussianHMM(n_components =  self.n_clusters, covariance_type = 'full'))
+#                 ])
 
-        self.pipeline_hmm = pipeline_hmm.fit(self.data_train)
-        self.features_used_in_model = features_hmm
+#         self.pipeline_hmm = pipeline_hmm.fit(self.data_train)
+#         self.features_used_in_model = features_hmm
 
-    def feature_list_generator(self):
-        """
-        perform combination of features
+#     def feature_list_generator(self):
+#         """
+#         perform combination of features
 
-        Parameters
-        ----------
-        None
+#         Parameters
+#         ----------
+#         None
 
-        Returns
-        -------
-        None
-        """
-        feature_combinations = set(list(combinations(self.init_features_hmm, self.select_n_features)))
-        feature_combinations = list(map(list, feature_combinations))
+#         Returns
+#         -------
+#         None
+#         """
+#         feature_combinations = set(list(combinations(self.init_features_hmm, self.select_n_features)))
+#         feature_combinations = list(map(list, feature_combinations))
 
-        self.feature_combinations = feature_combinations
+#         self.feature_combinations = feature_combinations
 
-    def get_error(self):
-        """
-        get error or score of a given model using relevance score
+#     def get_error(self):
+#         """
+#         get error or score of a given model using relevance score
 
-        Parameters
-        ----------
-        None
+#         Parameters
+#         ----------
+#         None
 
-        Returns
-        -------
-        None
-        """
-        self.data_train_ = self.data_train.copy()
+#         Returns
+#         -------
+#         None
+#         """
+#         self.data_train_ = self.data_train.copy()
 
-        self.data_train_['hmm_feature'] = self.pipeline_hmm.predict(self.data_train_)
-        self.data_train_ = self.data_train_[['Date','hmm_feature','Close']].sort_values('Date')
+#         self.data_train_['hmm_feature'] = self.pipeline_hmm.predict(self.data_train_)
+#         self.data_train_ = self.data_train_[['Date','hmm_feature','Close']].sort_values('Date')
 
-        ## indexing chains
-        self.data_train_['lag_hmm_feature'] = self.data_train_['hmm_feature'].shift(1)
-        self.data_train_['breack'] = np.where(self.data_train_['lag_hmm_feature'] != self.data_train_['hmm_feature'],1,0)
-        self.data_train_["chain_id"] = self.data_train_.groupby("breack")["Date"].rank(method="first", ascending=True)
-        self.data_train_["chain_id"] = np.where(self.data_train_['breack'] == 1,self.data_train_["chain_id"],np.nan)
-        self.data_train_["chain_id"] = self.data_train_["chain_id"].fillna(method='ffill')
-        self.data_train_["hmm_chain_order"] = self.data_train_.groupby('chain_id')["Date"].rank(method="first", ascending=True)
+#         ## indexing chains
+#         self.data_train_['lag_hmm_feature'] = self.data_train_['hmm_feature'].shift(1)
+#         self.data_train_['breack'] = np.where(self.data_train_['lag_hmm_feature'] != self.data_train_['hmm_feature'],1,0)
+#         self.data_train_["chain_id"] = self.data_train_.groupby("breack")["Date"].rank(method="first", ascending=True)
+#         self.data_train_["chain_id"] = np.where(self.data_train_['breack'] == 1,self.data_train_["chain_id"],np.nan)
+#         self.data_train_["chain_id"] = self.data_train_["chain_id"].fillna(method='ffill')
+#         self.data_train_["hmm_chain_order"] = self.data_train_.groupby('chain_id')["Date"].rank(method="first", ascending=True)
 
-        ### returns using the first element in a chain
-        self.data_train_['first'] = np.where(self.data_train_['hmm_chain_order'] == 1, self.data_train_['Close'], np.nan)
-        self.data_train_['first'] = self.data_train_.sort_values('Date')['first'].fillna(method='ffill')
-        self.data_train_['chain_return'] = (self.data_train_['Close']/self.data_train_['first'] -1) * 100
+#         ### returns using the first element in a chain
+#         self.data_train_['first'] = np.where(self.data_train_['hmm_chain_order'] == 1, self.data_train_['Close'], np.nan)
+#         self.data_train_['first'] = self.data_train_.sort_values('Date')['first'].fillna(method='ffill')
+#         self.data_train_['chain_return'] = (self.data_train_['Close']/self.data_train_['first'] -1) * 100
 
-        self.data_train_ = self.data_train_.drop(columns = ['first'])
+#         self.data_train_ = self.data_train_.drop(columns = ['first'])
 
-        mean_relevance, cluster_returns, number_relevant_states = states_relevance_score(self.data_train_)
-        self.mean_relevance = mean_relevance
+#         mean_relevance, cluster_returns, number_relevant_states = states_relevance_score(self.data_train_)
+#         self.mean_relevance = mean_relevance
 
-    def execute_selector(self):
-        """
-        select the best combination of features
+#     def execute_selector(self):
+#         """
+#         select the best combination of features
 
-        Parameters
-        ----------
-        None
+#         Parameters
+#         ----------
+#         None
 
-        Returns
-        -------
-        None
-        """
-        self.split_data()
-        self.feature_list_generator()
-        maxi = -1
-        print(f'it is expected {len(self.feature_combinations)} combinations')
-        feature_results = dict()
+#         Returns
+#         -------
+#         None
+#         """
+#         self.split_data()
+#         self.feature_list_generator()
+#         maxi = -1
+#         print(f'it is expected {len(self.feature_combinations)} combinations')
+#         feature_results = dict()
 
-        if self.limit_search:
-            print(f' taking just {self.limit_search} combinations')
-            maxi = self.limit_search
+#         if self.limit_search:
+#             print(f' taking just {self.limit_search} combinations')
+#             maxi = self.limit_search
 
-        for i,features_hmm in enumerate(self.feature_combinations[0:maxi]):
+#         for i,features_hmm in enumerate(self.feature_combinations[0:maxi]):
 
-            feature_results[f'group_{i}'] = {
-                'features':list(features_hmm),
-                'relevances':list()
-            }
+#             feature_results[f'group_{i}'] = {
+#                 'features':list(features_hmm),
+#                 'relevances':list()
+#             }
 
-            for _ in range(self.n_trials):
-                try:
-                    self.train_model(features_hmm)
-                    self.get_error()
-                    feature_results[f'group_{i}']['relevances'].append(self.mean_relevance)
-                except:
-                    print('error')
-            feature_results[f'group_{i}']['mean relevance'] = np.mean(feature_results[f'group_{i}']['relevances'])
-        self.feature_results = feature_results
-        self.best_features = pd.DataFrame(self.feature_results).T.sort_values('mean relevance').iloc[-1,:].features
+#             for _ in range(self.n_trials):
+#                 try:
+#                     self.train_model(features_hmm)
+#                     self.get_error()
+#                     feature_results[f'group_{i}']['relevances'].append(self.mean_relevance)
+#                 except:
+#                     print('error')
+#             feature_results[f'group_{i}']['mean relevance'] = np.mean(feature_results[f'group_{i}']['relevances'])
+#         self.feature_results = feature_results
+#         self.best_features = pd.DataFrame(self.feature_results).T.sort_values('mean relevance').iloc[-1,:].features
 
 class analyse_index(stock_eda_panel):
     """
