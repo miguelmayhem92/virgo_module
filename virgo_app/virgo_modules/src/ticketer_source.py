@@ -500,7 +500,6 @@ class stock_eda_panel(object):
             self.augmented_dickey_fuller_statistics(df['log_return'], 'log_return')
             self.augmented_dickey_fuller_statistics(df['roll_mean_log_return'], 'roll_mean_log_return')
 
-
     def find_lag(self, feature, lag_list, column_target = 'log_return',posterior_lag = 4, test_size = 350):
 
         """
@@ -546,7 +545,6 @@ class stock_eda_panel(object):
         plt.legend()
         plt.axhline(y=0, color='grey', linestyle='--')
         plt.show()
-
 
     def outlier_plot(self, zlim, plot = False, save_features = False):
 
@@ -709,62 +707,6 @@ class stock_eda_panel(object):
         self.features.append(feature_name)
         self.signals.append(f'signal_up_{feature_name}')
         self.signals.append(f'signal_low_{feature_name}')
-
-    #######################
-    #### to be deprecated ####
-    # def spread_MA(self, ma1, ma2, limit = 1.95, plot = False, save_features = False):
-
-    #     self.df[f'MA_{ma1}'] = (self.df.sort_values("Date")["Close"].transform(lambda x: x.rolling(ma1, min_periods=1).mean()))
-    #     self.df[f'MA_{ma2}'] = (self.df.sort_values("Date")["Close"].transform(lambda x: x.rolling(ma2, min_periods=1).mean()))
-
-    #     self.ma1_column = f'MA_{ma1}'
-    #     self.ma2_column = f'MA_{ma2}'
-    #     self.df['MA_spread'] = self.df[f'MA_{ma1}'] - self.df[f'MA_{ma2}']
-
-    #     self.df['norm_MA_spread'] =  (self.df['MA_spread'] - self.df['MA_spread'].mean())/self.df['MA_spread'].std()
-    #     mean_ = self.df['norm_MA_spread'].mean()
-    #     self.df['rollstd_MA_spread'] = self.df.sort_values("Date")["norm_MA_spread"].rolling(50).std()
-
-    #     self.df['upper_MA_spread'] = limit*self.df['rollstd_MA_spread'] + mean_
-    #     self.df['lower_MA_spread'] = -limit*self.df['rollstd_MA_spread'] + mean_
-
-    #     self.df['signal_low_MA_spread'] = np.where( (self.df['norm_MA_spread'] < self.df['lower_MA_spread'] ), 1, 0)
-    #     self.df['signal_up_MA_spread'] = np.where( (self.df['norm_MA_spread'] > self.df['upper_MA_spread'] ), 1, 0)
-
-    #     ### ploting purposes
-    #     self.df[f"Roll_mean_{ma1}"] = (
-    #         self.df.sort_values("Date")["Close"]
-    #         .transform(lambda x: x.rolling(ma1, min_periods=1).mean())
-    #     )
-    #     self.df[f"Roll_mean_{ma2}"] = (
-    #         self.df.sort_values("Date")["Close"]
-    #         .transform(lambda x: x.rolling(ma2, min_periods=1).mean())
-    #     )
-
-
-    #     print('--------------------------------------------------------------------')
-    #     if save_features:
-    #         self.features.append('MA_spread')
-    #         self.signals.append('signal_low_MA_spread')
-    #         self.signals.append('signal_up_MA_spread')
-    #         self.settings_spread_ma = {'ma1':ma1, 'ma2':ma2, 'limit':limit}
-
-    #     if plot:
-
-    #         fig, axs = plt.subplots(1, 3,figsize=(21,4))
-
-    #         axs[0].plot(self.df['Date'],self.df['norm_MA_spread'])
-    #         axs[0].plot(self.df['Date'],self.df['upper_MA_spread'], linestyle='--')
-    #         axs[0].plot(self.df['Date'],self.df['lower_MA_spread'], linestyle='--')
-    #         axs[0].set_title('MA_spread series')
-
-    #         plot_acf(self.df['MA_spread'].dropna(),lags=25, ax=axs[1])
-    #         axs[1].set_title('acf MA_spread series')
-
-    #         plot_pacf(self.df['MA_spread'].dropna(),lags=25, ax=axs[2])
-    #         axs[2].set_title('acf MA_spread series')
-    #         plt.show()
-    ##################################################
 
     def relative_spread_MA(self, ma1, ma2, threshold = 1.95, plot = False, save_features = False):
         """
@@ -948,36 +890,6 @@ class stock_eda_panel(object):
 
             plt.show()
 
-    #######################
-    #### to be deprecated ####
-    # def get_count_feature(self, rolling_window, threshold, plot = False, save_features = False):
-
-    #     # negative countiing and rolling countingng
-    #     self.df['RetClose'] = self.df['Close'].pct_change()
-    #     self.df['roll_pos_counting'] = np.where(self.df['RetClose'].shift(1) > 0,1,0 )
-    #     self.df['roll_pos_counting'] = self.df['roll_pos_counting'].rolling(window = rolling_window).sum()
-
-    #     mean = self.df['roll_pos_counting'].mean()
-    #     std = self.df['roll_pos_counting'].std()
-    #     self.df['norm_counting'] =  (self.df['roll_pos_counting'] - mean )/std
-
-    #     self.df['signal_up_roll_pos_counting'] = np.where((self.df['norm_counting'] > threshold),1,0)
-    #     self.df['signal_low_roll_pos_counting'] = np.where((self.df['norm_counting'] < -threshold),1,0)
-
-    #     if save_features:
-    #         self.features.append('roll_pos_counting')
-    #         self.signals.append('signal_up_roll_pos_counting')
-    #         self.signals.append('signal_low_roll_pos_counting')
-    #         self.settings_count_features = {'rolling_window':rolling_window, 'threshold':threshold}
-
-    #     if plot:
-    #         fig = plt.figure(figsize = (10,4))
-    #         plt.plot(self.df['Date'],self.df.norm_counting)
-    #         plt.axhline(y=threshold, color='grey', linestyle='--')
-    #         plt.axhline(y=-threshold, color='grey', linestyle='--')
-    #         plt.show()
-    #######################
-
     def bidirect_count_feature(self, rolling_window, threshold, plot = False, save_features = False):
         """
         perform negative and positive return counting in a given rolling time window
@@ -1016,45 +928,6 @@ class stock_eda_panel(object):
             plt.plot(self.df['Date'],self.df[f'upper_{feature_name}'], linestyle='--')
             plt.plot(self.df['Date'],self.df[f'lower_{feature_name}'], linestyle='--')
             plt.show()
-
-    #######################
-    #### to be deprecated ####
-    # def get_range_feature(self, window, up_threshold, low_threshold, plot = False, save_features = False):
-
-    #     self.df["Range"] = self.df["High"] / self.df["Low"] - 1
-    #     self.df['Avg_range'] = self.df['Range'].rolling(window = 5).mean()
-    #     self.df['dist_range'] = self.df['Range'] - self.df['Avg_range']
-    #     self.df['norm_dist_range'] = (self.df['dist_range'] - self.df['dist_range'].mean())/ self.df['dist_range'].std()
-
-    #     mean_ = self.df['norm_dist_range'].mean()
-    #     self.df[f'std_norm_dist_range'] = (self.df.sort_values("Date")["norm_dist_range"].transform(lambda x: x.rolling(window, min_periods=1).std()))
-
-    #     self.df['up_bound_norm_dist_range'] = up_threshold*self.df['std_norm_dist_range'] + mean_
-    #     self.df['low_bound_norm_dist_range'] = -low_threshold*self.df['std_norm_dist_range'] + mean_
-
-    #     self.df['signal_up_dist_range'] = np.where(self.df['norm_dist_range'] > self.df['up_bound_norm_dist_range'],1,0 )
-    #     self.df['signal_low_dist_range'] = np.where(self.df['norm_dist_range'] < self.df['low_bound_norm_dist_range'],1,0 )
-
-    #     if save_features:
-    #         self.features.append('dist_range')
-    #         self.signals.append('signal_up_dist_range')
-    #         self.signals.append('signal_low_dist_range')
-    #         self.settings_price_range = {'window':window, 'up_threshold':up_threshold, 'low_threshold':low_threshold}
-
-    #     if plot:
-    #         fig, axs = plt.subplots(2, 2,figsize=(17,11))
-
-    #         axs[0,0].plot(self.df['Range'])
-    #         axs[0,0].set_title('range')
-
-    #         axs[0,1].plot(self.df['Avg_range'])
-    #         axs[0,1].set_title('Avg_range')
-
-    #         axs[1,0].plot(self.df['up_bound_norm_dist_range'],color = 'grey', linestyle='--')
-    #         axs[1,0].plot(self.df['low_bound_norm_dist_range'],color = 'grey', linestyle='--')
-    #         axs[1,0].plot(self.df['norm_dist_range'])
-    #         axs[1,0].set_title('norm_dist_range')
-    #######################
 
     def get_relative_range_feature(self, window, threshold, plot = False, save_features = False):
         """
@@ -1099,42 +972,6 @@ class stock_eda_panel(object):
             axs[1].plot(self.df[f'norm_{feature_name}'])
             axs[1].set_title(f'norm_{feature_name}')
 
-    #######################
-    #### to be deprecated ####
-    # def rsi_feature(self, window, lag_rsi_ret, threshold, plot = False, save_features = False):
-
-    #     rsi = RSIIndicator(close = self.df['Close'], window = window).rsi()
-    #     self.df['RSI'] = rsi
-    #     self.df['RSI_ret'] = self.df['RSI']/self.df['RSI'].shift(lag_rsi_ret)
-
-    #     mean = self.df['RSI_ret'].mean()
-    #     std = self.df['RSI_ret'].std()
-    #     self.df['norm_RSI_ret'] = (self.df['RSI_ret']-mean)/std
-    #     self.df['signal_up_RSI_ret'] = np.where(self.df['norm_RSI_ret'] > threshold,1,0)
-    #     self.df['signal_low_RSI_ret'] = np.where(self.df['norm_RSI_ret'] < -threshold,1,0)
-
-    #     if save_features:
-    #         self.features.append('RSI_ret')
-    #         self.signals.append('signal_up_RSI_ret')
-    #         self.signals.append('signal_low_RSI_ret')
-    #         self.settings_rsi_feature= {'window':window, 'lag_rsi_ret':lag_rsi_ret, 'threshold':threshold}
-
-    #     if plot:
-    #         fig, axs = plt.subplots(1, 3,figsize=(17,5))
-
-    #         axs[0].plot(self.df.norm_RSI_ret)
-    #         axs[0].axhline(y=threshold, color='grey', linestyle='--')
-    #         axs[0].axhline(y=-threshold, color='grey', linestyle='--')
-
-    #         plot_acf(self.df['RSI_ret'].dropna(),lags=25,ax = axs[1])
-    #         axs[1].set_title('acf RSI_ret')
-
-    #         plot_pacf(self.df['RSI_ret'].dropna(),lags=25,ax = axs[2])
-    #         axs[2].set_title('pacf RSI_ret')
-
-    #         fig.show()
-    #######################
-
     def rsi_feature_improved(self, window, threshold, plot = False, save_features = False):
         """
         perform relative strength index
@@ -1161,51 +998,6 @@ class stock_eda_panel(object):
 
         if plot:
             self.signal_plotter(feature_name)
-
-    #######################
-    #### to be deprecated ####
-    # def days_features(self, window_day, limit, plot = False, save_features = False):
-
-    #     self.df['dow'] = self.df.Date.dt.dayofweek
-    #     self.df['dow'] = self.df['dow'].astype('str')
-
-    #     self.df['target_mean_input'] = (self.df.sort_values("Date").groupby('dow')['roll_mean_log_return'].transform(lambda x: x.rolling(window_day, min_periods=1).mean()))
-
-    #     mean = self.df['target_mean_input'].mean()
-    #     std = self.df['target_mean_input'].std()
-
-    #     self.df['norm_dow_input'] = (self.df['target_mean_input']-mean)/std
-    #     mean_ = self.df['norm_dow_input'].mean()
-    #     self.df['std_dow_input'] = self.df.sort_values("Date")["norm_dow_input"].rolling(50).std()
-
-    #     self.df['up_dow_input'] = limit*self.df['std_dow_input'] + mean_
-    #     self.df['low_dow_input'] = -limit*self.df['std_dow_input'] - mean_
-
-    #     self.df['signal_up_target_mean_input'] = np.where(self.df['norm_dow_input'] > self.df['up_dow_input'],1,0)
-    #     self.df['signal_low_target_mean_input'] = np.where(self.df['norm_dow_input'] < self.df['low_dow_input'],1,0)
-
-    #     if save_features:
-
-    #         self.features.append('target_mean_input')
-    #         self.signals.append('signal_up_target_mean_input')
-    #         self.signals.append('signal_low_target_mean_input')
-    #         self.settings_days_features = {'window_day':window_day, 'limit':limit}
-
-    #     if plot:
-    #         fig, axs = plt.subplots(1, 3,figsize=(17,5))
-
-    #         axs[0].plot(self.df['norm_dow_input'])
-    #         axs[0].plot(self.df['up_dow_input'], linestyle='--')
-    #         axs[0].plot(self.df['low_dow_input'], linestyle='--')
-
-    #         plot_acf(self.df['norm_dow_input'].dropna(),lags=25,ax = axs[1])
-    #         axs[1].set_title('acf day feature')
-
-    #         plot_pacf(self.df['norm_dow_input'].dropna(),lags=25,ax = axs[2])
-    #         axs[2].set_title('pacf day feature')
-
-    #         fig.show()
-    #######################
 
     def days_features_bands(self, window, threshold, plot = False, save_features = False):
         """
@@ -1238,62 +1030,6 @@ class stock_eda_panel(object):
 
         if plot:
             self.signal_plotter(feature_name)
-
-    #######################
-    #### to be deprecated ####
-    # def analysis_volume(self,lag_volume, threshold, window, plot = False, save_features = False):
-
-    #     self.df['log_Volume'] = np.log(self.df['Volume'])
-    #     self.df['ret_log_Volume'] = self.df['log_Volume'].pct_change(lag_volume)
-
-    #     self.df['norm_ret_log_Volume'] = (self.df['ret_log_Volume'] - self.df['ret_log_Volume'].mean())/ self.df['ret_log_Volume'].std()
-    #     mean_ = self.df['norm_ret_log_Volume'].mean()
-    #     self.df[f'std_norm_ret_log_Volume'] = (self.df.sort_values("Date")["norm_ret_log_Volume"].transform(lambda x: x.rolling(window, min_periods=1).std()))
-
-    #     self.df['up_bound_ret_log_Volume'] = threshold*self.df['std_norm_ret_log_Volume'] + mean_
-    #     self.df['low_bound_ret_log_Volume'] = -threshold*self.df['std_norm_ret_log_Volume'] + mean_
-
-    #     self.df['signal_up_ret_log_Volume'] = np.where(self.df['norm_ret_log_Volume'] > self.df['up_bound_ret_log_Volume'],1,0 )
-    #     self.df['signal_low_ret_log_Volume'] = np.where(self.df['norm_ret_log_Volume'] < self.df['low_bound_ret_log_Volume'],1,0 )
-
-    #     if save_features:
-    #         self.features.append('ret_log_Volume')
-    #         self.signals.append('signal_up_ret_log_Volume')
-    #         self.signals.append('signal_low_ret_log_Volume')
-    #         self.settings_volume_feature= {'lag_volume':lag_volume, 'threshold':threshold, 'window':window}
-    #     if plot:
-    #         fig, axs = plt.subplots(3, 2,figsize=(11,13))
-    #         axs[0,0].plot(self.df.Date, self.df.Volume)
-    #         axs[0,0].set_title('Volume')
-    #         axs[0,1].plot(self.df.Date, self.df.log_Volume)
-    #         axs[0,1].set_title('log Volume')
-
-    #         plot_acf(self.df['log_Volume'].dropna(),lags=25, ax = axs[1,0])
-    #         axs[1,0].set_title('acf log_Volume')
-    #         plot_pacf(self.df['log_Volume'].dropna(),lags=25, ax = axs[1,1])
-    #         axs[1,1].set_title('pacf log_Volume')
-
-    #         plot_acf(self.df['ret_log_Volume'].dropna(),lags=25, ax = axs[2,0])
-    #         axs[2,0].set_title('acf ret_log_Volume')
-    #         plot_pacf(self.df['ret_log_Volume'].dropna(),lags=25, ax = axs[2,1])
-    #         axs[2,1].set_title('pacf ret_log_Volume')
-
-    #         plt.show()
-
-    #         print('--------------------------------------------------------------')
-
-    #         fig, axs = plt.subplots(1, 2,figsize=(10,4))
-
-    #         axs[0].plot(self.df.Date, self.df.norm_ret_log_Volume)
-    #         axs[0].plot(self.df.Date, self.df.up_bound_ret_log_Volume)
-    #         axs[0].plot(self.df.Date, self.df.low_bound_ret_log_Volume)
-    #         axs[0].set_title('norm_ret_log_Volume')
-
-    #         axs[1].plot(self.df.Date, self.df.std_norm_ret_log_Volume)
-    #         axs[1].set_title('std_norm_ret_log_Volume')
-
-    #         plt.show()
-    #######################
 
     def analysis_smooth_volume(self, window, threshold, plot = False, save_features = False):
         """
@@ -1943,53 +1679,6 @@ class stock_eda_panel(object):
         plt.legend()
         plt.show()
 
-    ### deprecated ############################
-    def create_strategy(self, favourable_states):
-        
-        test_data = self.test_data_hmm
-        # add MA signal
-        test_data.loc[test_data[self.ma1_column] > test_data[self.ma2_column], 'MA_signal'] = 1
-        test_data.loc[test_data[self.ma1_column] <= test_data[self.ma2_column], 'MA_signal'] = 0
-
-        # add hnn signal
-
-        test_data['HMM_signal'] =  np.where(test_data['HMM'].isin(favourable_states),1,0)
-
-        ## combined signals
-        test_data['main_signal'] = 0
-        test_data.loc[(test_data['MA_signal'] == 1) & (test_data['HMM_signal'] == 1), 'main_signal'] = 1
-        test_data['main_signal'] = test_data['main_signal'].shift(1)
-
-        ## benchmark return
-        test_data['lrets_bench'] = np.log(test_data['Close']/test_data['Close'].shift(1))
-        test_data['bench_prod'] = test_data['lrets_bench'].cumsum()
-        test_data['bench_prod_exp'] = np.exp(test_data['bench_prod']) - 1
-
-        ## strategy return
-        # test_data['lrets_strat'] = np.log(test_data['Open'].shift(-1)/test_data['Open']) * test_data['main_signal']
-        test_data['lrets_strat'] = np.log(test_data['Close'].shift(-1)/test_data['Close']) * test_data['main_signal']
-        test_data['lrets_prod'] = test_data['lrets_strat'].cumsum()
-        test_data['strat_prod_exp'] = np.exp(test_data['lrets_prod']) - 1
-        test_data.dropna(inplace = True)
-
-        bench_rets = round(test_data['bench_prod_exp'].values[-1]*100,1)
-        strat_rets = round(test_data['strat_prod_exp'].values[-1]*100,1)
-
-        bench_sharpe = self.sharpe_ratio(test_data['bench_prod_exp'].values)
-        strat_sharpe = self.sharpe_ratio(test_data['strat_prod_exp'].values)
-
-        print(f'returns benchmark {bench_rets}%')
-        print(f'returns strategy {strat_rets}%')
-        print('-----------------------------')
-        print(f'sharpe benchmark {bench_sharpe}')
-        print(f'sharpe strategy {strat_sharpe}')
-
-        fig = plt.figure(figsize = (10,4))
-        plt.plot(test_data['bench_prod_exp'])
-        plt.plot(test_data['strat_prod_exp'])
-        self.settings_hmm_states = {'favourable_states':favourable_states}
-    ################################################
-
     def deep_dive_analysis_hmm(self, test_data_size, split = 'train'):
         """
         display analysis plot hmm model
@@ -2277,214 +1966,6 @@ class produce_model:
         self.pipeline.fit(self.X_train, self.y_train)
         self.features_to_model = self.pipeline[:-1].transform(self.X_train).columns
 
-# class hmm_feature_selector():
-#     """
-#     class that is going to train hmm models to perform feature selection
-
-#     Attributes
-#     ----------
-#     data  : pd.DataFrame
-#         symbol of the asset
-#     n_clusters : int
-#         number of clusters to search
-#     init_features_hmm : list
-#         list of features to consider in the search
-#     test_data_size :int
-#         test data size, meaning that the remaining is going to be used as training data
-#     select_n_features : int
-#         number of features to select
-#     n_trials : int
-#         total number of trials per combination
-#     limit_search : int
-#         limit number of combinations
-#     default_benchmark_sd : float
-#         default value to bias standard deviation
-#     t_threshold : float
-#         alpha or z threshold
-#     pipeline_hmm: obj
-#         pipeline object of the hmm model
-#     features_used_in_model:list
-#         features in model
-#     train_model(features_hmm=list):
-#         train hmm model
-#     feature_combinations: list
-#         list of combination of features
-#     mean_relevance: float
-#         relevance score of the model
-#     best_features: list
-#         list of best performing features
-
-#     Methods
-#     -------
-#     split_data():
-#         split data in train and test
-#     train_model(features_hmm=list):
-#         train hmm model
-#     feature_list_generator():
-#         perform combination of features
-#     get_error():
-#         get error or score of a given model using relevance score
-#     execute_selector():
-#         select the best combination of features
-#     """
-#     def __init__(self, data, n_clusters, init_features_hmm, test_data_size, select_n_features, n_trials = 1,limit_search = False, default_benchmark_sd = 0.00003, t_threshold = 2):
-#         """
-#         Initialize object
-
-#         Parameters
-#         ----------
-#         data (pd.DataFrame): data
-#         n_clusters (int): number of clusters to search
-#         init_features_hmm (list): list of features to consider in the search
-#         test_data_siz:(int:  test data size, meaning that the remaining is going to be used as training data
-#         select_n_features (int): number of features to select
-#         n_trials (int): total number of trials per combination
-#         limit_search (int): limit number of combinations
-#         default_benchmark_sd (float): default value to bias standard deviation
-#         t_threshold (float): alpha or z threshold
-
-#         Returns
-#         -------
-#         None
-#         """
-#         self.data = data.copy()
-#         self.n_clusters = n_clusters
-#         self.init_features_hmm = init_features_hmm
-#         self.test_data_size = test_data_size
-#         self.select_n_features = select_n_features
-#         self.n_trials = n_trials
-#         self.limit_search= limit_search
-#         self.default_benchmark_sd = default_benchmark_sd
-#         self.t_threshold = t_threshold
-
-#     def split_data(self):
-#         """
-#         split data in train and test
-
-#         Parameters
-#         ----------
-#         None
-
-#         Returns
-#         -------
-#         None
-#         """
-#         self.data_train = self.data.iloc[:-self.test_data_size,:]
-#         self.data_test = self.data.iloc[-self.test_data_size:,:]
-
-#     def train_model(self,features_hmm):
-#         """
-#         train hmm model
-
-#         Parameters
-#         ----------
-#         features_hmm (list): list of features to be selected in the model
-
-#         Returns
-#         -------
-#         None
-#         """
-#         pipeline_hmm = Pipeline([
-#                 ('selector', FeatureSelector(columns=features_hmm)),
-#                 ('fillna', MeanMedianImputer(imputation_method='median',variables=features_hmm)),
-#                 ('hmm',GaussianHMM(n_components =  self.n_clusters, covariance_type = 'full'))
-#                 ])
-
-#         self.pipeline_hmm = pipeline_hmm.fit(self.data_train)
-#         self.features_used_in_model = features_hmm
-
-#     def feature_list_generator(self):
-#         """
-#         perform combination of features
-
-#         Parameters
-#         ----------
-#         None
-
-#         Returns
-#         -------
-#         None
-#         """
-#         feature_combinations = set(list(combinations(self.init_features_hmm, self.select_n_features)))
-#         feature_combinations = list(map(list, feature_combinations))
-
-#         self.feature_combinations = feature_combinations
-
-#     def get_error(self):
-#         """
-#         get error or score of a given model using relevance score
-
-#         Parameters
-#         ----------
-#         None
-
-#         Returns
-#         -------
-#         None
-#         """
-#         self.data_train_ = self.data_train.copy()
-
-#         self.data_train_['hmm_feature'] = self.pipeline_hmm.predict(self.data_train_)
-#         self.data_train_ = self.data_train_[['Date','hmm_feature','Close']].sort_values('Date')
-
-#         ## indexing chains
-#         self.data_train_['lag_hmm_feature'] = self.data_train_['hmm_feature'].shift(1)
-#         self.data_train_['breack'] = np.where(self.data_train_['lag_hmm_feature'] != self.data_train_['hmm_feature'],1,0)
-#         self.data_train_["chain_id"] = self.data_train_.groupby("breack")["Date"].rank(method="first", ascending=True)
-#         self.data_train_["chain_id"] = np.where(self.data_train_['breack'] == 1,self.data_train_["chain_id"],np.nan)
-#         self.data_train_["chain_id"] = self.data_train_["chain_id"].fillna(method='ffill')
-#         self.data_train_["hmm_chain_order"] = self.data_train_.groupby('chain_id')["Date"].rank(method="first", ascending=True)
-
-#         ### returns using the first element in a chain
-#         self.data_train_['first'] = np.where(self.data_train_['hmm_chain_order'] == 1, self.data_train_['Close'], np.nan)
-#         self.data_train_['first'] = self.data_train_.sort_values('Date')['first'].fillna(method='ffill')
-#         self.data_train_['chain_return'] = (self.data_train_['Close']/self.data_train_['first'] -1) * 100
-
-#         self.data_train_ = self.data_train_.drop(columns = ['first'])
-
-#         mean_relevance, cluster_returns, number_relevant_states = states_relevance_score(self.data_train_)
-#         self.mean_relevance = mean_relevance
-
-#     def execute_selector(self):
-#         """
-#         select the best combination of features
-
-#         Parameters
-#         ----------
-#         None
-
-#         Returns
-#         -------
-#         None
-#         """
-#         self.split_data()
-#         self.feature_list_generator()
-#         maxi = -1
-#         print(f'it is expected {len(self.feature_combinations)} combinations')
-#         feature_results = dict()
-
-#         if self.limit_search:
-#             print(f' taking just {self.limit_search} combinations')
-#             maxi = self.limit_search
-
-#         for i,features_hmm in enumerate(self.feature_combinations[0:maxi]):
-
-#             feature_results[f'group_{i}'] = {
-#                 'features':list(features_hmm),
-#                 'relevances':list()
-#             }
-
-#             for _ in range(self.n_trials):
-#                 try:
-#                     self.train_model(features_hmm)
-#                     self.get_error()
-#                     feature_results[f'group_{i}']['relevances'].append(self.mean_relevance)
-#                 except:
-#                     print('error')
-#             feature_results[f'group_{i}']['mean relevance'] = np.mean(feature_results[f'group_{i}']['relevances'])
-#         self.feature_results = feature_results
-#         self.best_features = pd.DataFrame(self.feature_results).T.sort_values('mean relevance').iloc[-1,:].features
-
 class analyse_index(stock_eda_panel):
     """
     class that is going to train hmm models to perform feature selection
@@ -2719,7 +2200,6 @@ class analyse_index(stock_eda_panel):
             result.append(dict_res)
     
         self.states_result = result
-
 
 def get_relevant_beta(data_market, ticket_name,  show_plot = True, save_path = False, save_aws = False, aws_credentials = False):
     '''

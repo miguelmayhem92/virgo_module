@@ -6,11 +6,10 @@ from sklearn.pipeline import Pipeline
 
 from feature_engine.selection import DropFeatures, DropCorrelatedFeatures
 from feature_engine.imputation import  MeanMedianImputer
-from virgo_modules.src.ticketer_source import FeatureSelector
 from feature_engine.discretisation import EqualWidthDiscretiser
 from feature_engine.datetime import DatetimeFeatures
 
-from .ticketer_source import VirgoWinsorizerFeature, InverseHyperbolicSine, FeaturesEntropy
+from .transformer_utils import VirgoWinsorizerFeature, InverseHyperbolicSine, FeaturesEntropy, FeatureSelector
 
 class produce_model_wrapper:
     """
