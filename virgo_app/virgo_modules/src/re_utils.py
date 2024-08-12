@@ -761,8 +761,8 @@ def get_data(ticker_name:str, ticket_settings:dict, n_days:int = False, hmm_avai
                                             features_hmm = ticket_settings['settings']['hmm']['features_hmm'],
                                             test_data_size = ticket_settings['settings']['hmm']['test_data_size'],
                                             seed = ticket_settings['settings']['hmm']['seed'],
-                                            seed = ticket_settings['settings']['hmm'].get('corr_threshold',0.75),
-                                            seed = ticket_settings['settings']['hmm'].get('lag_returns_state',7),
+                                            corr_threshold = ticket_settings['settings']['hmm'].get('corr_threshold',0.75),
+                                            lag_returns_state = ticket_settings['settings']['hmm'].get('lag_returns_state',7),
                                             )
     
     return object_stock
