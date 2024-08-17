@@ -55,6 +55,7 @@ import logging
 
 from virgo_modules.src.hmm_utils import trainer_hmm
 from virgo_modules.src.transformer_utils import signal_combiner, FeatureSelector
+from virgo_modules.src.transformer_utils import FeaturesEntropy, VirgoWinsorizerFeature # imported bcs some models read this module otherwise it crashed mlflow.load()
 
 def data_processing_pipeline(features_base,features_to_drop = False, lag_dict = False, combine_signals = False, discretize_columns = False, correlation = 0.77):
 
