@@ -173,6 +173,8 @@ class stock_eda_panel(object):
         perform additional asset ROC feature, then a new feature is created in the main dataframe
     produce_order_features(feature_name=str, save_features=boolean):
         perform a feature that captures high and low values in an index. this is usefull to know duration/persistence of a signal
+    compute_last_signal (feature_name=str, save_features=boolean):
+        perform a feature that captures high and low values in an index. this is usefull to know duration/persistence of a signal
     create_hmm_derived_features():
         create features derived from hmm states features. Features are the index of the state, the duration of the state, chain raturn
     cluster_hmm_analysis(n_clusters=int,features_hmm=list, test_data_size=int, seed=int, lag_returns_state=int, plot=boolean, save_features=boolean, model=obj):
@@ -1382,6 +1384,53 @@ class stock_eda_panel(object):
         if save_features:
             self.signals.append(signal_feature_name)
             self.signals.append(order_feature_name)
+
+    def compute_last_signal(self,feature, save_features = False):
+        """
+        perform two new features when signal is observed, one for the last duration of the previous chain, second for the last duration of the same sign signal
+
+        Parameters
+        ----------
+        feature_name (str): name of the feature
+        save_features (boolean): True to save feature configuration and feature names
+        
+        Returns
+        -------
+        None
+        """
+        def create_last_signal(df, feature, prefix, type ='0'):
+            if type == '0':
+                condition = df[f'order_signal_{feature}'] != 0
+            elif type == '+':
+                condition = df[f'order_signal_{feature}'] > 0
+            elif type == '-':
+                condition = df[f'order_signal_{feature}'] < 0
+            df[f'last_maxorder_{feature}'] = np.where(condition, df[f'order_signal_{feature}'],np.nan)
+            df['tmp_chain_index'] = df[f'last_maxorder_{feature}'].shift(-1)
+            df['last'] = np.where((df[f'last_maxorder_{feature}'] != 0) & (df['tmp_chain_index'].isna()),df[f'last_maxorder_{feature}'], np.nan )
+            df['last'] = df['last'].shift(1)
+            df[f'last_maxorder_{feature}'] = df['last'].fillna(method = 'ffill')
+            df = df.drop(columns = ['tmp_chain_index','last'])
+            df[f'last_maxorder_{feature}'] = np.where(df[f'order_signal_{feature}'] != 0,df[f'last_maxorder_{feature}'],np.nan)
+            df[f'last_maxorder_{feature}'] = df[f'last_maxorder_{feature}'].fillna(0)
+            df = df.rename(columns = {f'last_maxorder_{feature}':f'{prefix}_{feature}'})
+            return df
+        prefix0, prefix1, prefix2 = 'ldur', 'pos', 'neg'
+        self.df = create_last_signal(self.df, feature, prefix0, type ='0')
+        self.df = create_last_signal(self.df, feature, prefix1, type ='+')
+        self.df = create_last_signal(self.df, feature, prefix2, type ='-')
+
+        self.df[f'sldur_{feature}'] = np.where(
+            self.df[f'order_signal_{feature}'] > 0, self.df[f'{prefix1}_{feature}'],
+            np.where(
+                self.df[f'order_signal_{feature}'] < 0, self.df[f'{prefix2}_{feature}'],
+                0
+            )
+        )
+        self.df = self.df.drop(columns = [f'{prefix1}_{feature}',f'{prefix2}_{feature}'])
+        if save_features:
+                self.signals.append(f'sldur_{feature}')
+                self.signals.append(f'ldur_{feature}')
 
     def create_hmm_derived_features(self, lag_returns):
         """
