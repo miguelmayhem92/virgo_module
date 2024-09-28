@@ -1092,7 +1092,7 @@ class produce_plotly_plots:
         states = list(df.hmm_feature.unique())
         states.sort()    
         ### expand hmm analysis
-        hmm_titles = ['Transition matrix heatmap' , 'state return (base first observation)','length chains dist']
+        hmm_titles = ['state return (base first observation)','Transition matrix heatmap','length chains dist']
 
         fig = make_subplots(
             rows= rows_subplot, cols=2,
@@ -1121,7 +1121,8 @@ class produce_plotly_plots:
         for state in states:
             dfi = df_[df_.hmm_feature == state]
             fig.add_trace(go.Box(y = dfi.chain_return, name=str(state),showlegend=False, marker_color = color_map[state] ),row=1, col=1)
-
+        fig.add_hline(y=0, line_width=2, line_dash="dash", line_color="grey",row=1, col=1)
+        
         ## lengths chains by state dist
         if 'hmm_chain_order' in df.columns:
             df_agg = df.groupby(['hmm_feature','chain_id'],as_index = False).agg(length_by_chain = ('hmm_chain_order','max'))
@@ -1268,6 +1269,7 @@ class produce_plotly_plots:
             df = prediction[prediction.ExecutionDate == last_date]
             fig.add_trace(go.Scatter(x=df.Date, y=df.log_return, mode='lines',marker_color ='#ff7f0e',showlegend=False),row=1, col=1)
             fig.add_trace(go.Scatter(x=df.Date, y=df.log_return, mode='markers',marker_color ='#ff7f0e',showlegend=False),row=1, col=1)
+            fig.add_hline(y=0, line_width=2, line_dash="dash", line_color="grey",col = 1, row = 1)
 
             ## closing prices
 
@@ -1292,7 +1294,7 @@ class produce_plotly_plots:
             upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = self.save_aws + result_json_name, input_path = self.save_path + result_json_name, aws_credentials = self.aws_credentials)
         if self.return_figs:
             return fig
-        
+                
 def plot_hmm_analysis_logger(data_frame,test_data_size, save_path = False, show_plot = True):
     '''
     display box plots train and test of hmm state returns
