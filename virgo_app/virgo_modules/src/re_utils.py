@@ -907,7 +907,7 @@ class produce_plotly_plots:
         self.aws_credentials = aws_credentials
         self.return_figs = return_figs
 
-    def plot_asset_signals(self, feature_list,spread_column, date_intervals = False):
+    def plot_asset_signals(self, feature_list,spread_column, date_intervals = False, look_back = 800):
         """
         Display signals and hmm states over closing prices and feature time series
 
@@ -923,6 +923,8 @@ class produce_plotly_plots:
         """
         result_json_name = 'panel_signals.json'
         df = self.data_frame
+        if look_back:
+            df = df.iloc[-look_back:,:]
         ma1 = self.settings['settings'][spread_column]['ma1']
         ma2 = self.settings['settings'][spread_column]['ma2']
         hmm_n_clust = self.settings['settings']['hmm']['n_clusters']
