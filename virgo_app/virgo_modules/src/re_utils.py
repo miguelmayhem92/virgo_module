@@ -1211,18 +1211,26 @@ class produce_plotly_plots:
         if self.return_figs:
             return fig, messages
         
-    def produce_forecasting_plot(self,predictions):
+    def produce_forecasting_plot(self,predictions, window=30):
         """
         display forecasting plots
 
         Parameters
         ----------
         predictions (pd.DataFrame): asset predictions
+        window (int): historical data to display
 
         Returns
         -------
         None
         """
+        def qs(x):
+            return x.quantile(0.05)
+        def qm(x):
+            return x.quantile(0.50)
+        def ql(x):
+            return x.quantile(0.95)
+        
         result_json_name = 'forecast_plot.json'
         hmm_n_clust = self.settings['settings']['hmm']['n_clusters']
         model_type = self.settings.get('model_type',False)
@@ -1238,8 +1246,6 @@ class produce_plotly_plots:
                 [{"type": "scatter"}, {"type": "scatter"}]],
             subplot_titles = [f'asset returns {lags} lags', 'closing prices', 'hidden states']
         )
-
-
         predictions = predictions[predictions.StockCode == self.ticket_name]
         if len(predictions) > 1: 
 
@@ -1255,12 +1261,18 @@ class produce_plotly_plots:
             last_exe_prediction_date = predictions.ExecutionDate.unique()
             last_date = max(last_exe_prediction_date)
 
-            history = predictions[(predictions.Type == 'History') & (predictions.ExecutionDate == last_date)]
+            history = self.data_frame.sort_values('Date').iloc[-window:,:]
             cut_date = history.loc[history.iloc[-1:,:].index[0]:,'Date'].item()
-
             prediction = predictions[predictions.Type == 'Prediction']
 
             ## log returns
+            def add_intervals(data,feature,i,w=5):
+                df_qs = data.sort_values('Date')[['Date',feature]].rolling(3,min_periods = 1,on='Date').apply(qs).groupby('Date',as_index=False)[feature].max()
+                df_qm = data.sort_values('Date')[['Date',feature]].rolling(3,min_periods = 1,on='Date').apply(qm).groupby('Date',as_index=False)[feature].max()
+                df_ql = data.sort_values('Date')[['Date',feature]].rolling(3,min_periods = 1,on='Date').apply(ql).groupby('Date',as_index=False)[feature].max()
+                fig.add_trace(go.Scatter(x=df_qs.Date, y=df_qs[feature], mode='lines',marker_color ='#D0D0D0',showlegend=False,opacity=0.05),row=1, col=i)
+                fig.add_trace(go.Scatter(x=df_qm.Date, y=df_qm[feature], mode='lines',marker_color ='#D0D0D0',showlegend=False,opacity=0.05, fill='tonexty'),row=1, col=i)
+                fig.add_trace(go.Scatter(x=df_ql.Date, y=df_ql[feature], mode='lines',marker_color ='#D0D0D0',showlegend=False,opacity=0.05, fill='tonexty'),row=1, col=i)
 
             fig.add_trace(go.Scatter(x=history.Date, y=history.log_return, mode='lines',marker_color ='blue',showlegend=False),row=1, col=1)
 
@@ -1272,9 +1284,9 @@ class produce_plotly_plots:
             fig.add_trace(go.Scatter(x=df.Date, y=df.log_return, mode='lines',marker_color ='#ff7f0e',showlegend=False),row=1, col=1)
             fig.add_trace(go.Scatter(x=df.Date, y=df.log_return, mode='markers',marker_color ='#ff7f0e',showlegend=False),row=1, col=1)
             fig.add_hline(y=0, line_width=2, line_dash="dash", line_color="grey",col = 1, row = 1)
+            add_intervals(data=prediction,feature='log_return',i=1)
 
             ## closing prices
-
             fig.add_trace(go.Scatter(x=history.Date, y=history.Close, mode='lines',marker_color ='blue',showlegend=False),row=1, col=2)
             for i,datex in enumerate([x for x in last_exe_prediction_date if x != last_date]):
                 df = prediction[prediction.ExecutionDate == datex]
@@ -1284,6 +1296,7 @@ class produce_plotly_plots:
             fig.add_trace(go.Scatter(x=df.Date, y=df.Close, mode='lines',marker_color ='#ff7f0e',showlegend=False),row=1, col=2)
             fig.add_trace(go.Scatter(x=df.Date, y=df.Close, mode='markers',marker_color ='#ff7f0e',showlegend=False),row=1, col=2)
             fig.update_layout(height=height_plot, width=1600, title_text = f'forecasts: {self.ticket_name}')
+            add_intervals(data=prediction,feature='Close',i=2)
         else:
             print('no forecasting history')
             
