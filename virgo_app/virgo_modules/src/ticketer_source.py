@@ -1287,7 +1287,7 @@ class stock_eda_panel(object):
                 
             setattr(self,f'settings_{name_attr}_pricefeature' , {'type_func': type_func, 'window': window, 'distance': distance})
 
-    def pair_index_feature(self, pair_symbol, feature_label, window, threshold, plot = False, save_features = False):
+    def pair_index_feature(self, pair_symbol, feature_label,window,threshold,ta_method='ROC',param_set=False,plot = False, save_features = False):
         """
         perform additional asset ROC feature, then a new feature is created in the main dataframe
 
@@ -1295,8 +1295,10 @@ class stock_eda_panel(object):
         ----------
         pair_symbol (str): symbol of the asset to extract the data
         feature_label (str): name of the resulting feature
-        window (int): window to apply to the feature
+        window (int): window to apply to the feature as default (this parameter is going to be deprecated)
         threshold (float): alpha or z thrsholds for the normalized feature
+        param_set (dict): parameter set in case ta_method is other than ROC
+        ta_method (str): method to use, available RSI, ROC, VORTEX, STOCH 
         plot (boolean): True to display plot
         save_features (boolean): True to save feature configuration and feature names
         
@@ -1326,7 +1328,20 @@ class stock_eda_panel(object):
         self.pair_index_df = self.pair_index_df.fillna(method = 'bfill')
         self.pair_index_df = self.pair_index_df.fillna(method = 'ffill')
 
-        self.pair_index_df[feature_label] = ROCIndicator(close = self.pair_index_df['Close'], window = window).roc()
+        if ta_method == 'ROC':
+            window = window if window else param_set.get('window')
+            roc = ROCIndicator(close = self.pair_index_df['Close'], window = window).roc()
+            self.pair_index_df[feature_label] = roc.replace([np.inf, -np.inf], 0).fillna(method = 'ffill')
+        elif ta_method == 'RSI':
+            rsi = RSIIndicator(close = self.pair_index_df['Close'], **param_set).rsi()
+            self.pair_index_df[feature_label] = rsi.replace([np.inf, -np.inf], 0).fillna(method = 'ffill')
+        elif ta_method == 'VORTEX':
+            vortex = VortexIndicator(close = self.pair_index_df['Close'], high = self.pair_index_df['High'], low = self.pair_index_df['Low'], **param_set).vortex_indicator_diff()
+            self.pair_index_df[feature_label] = vortex.replace([np.inf, -np.inf], 0).fillna(method = 'ffill')
+        elif ta_method == 'STOCH':
+            stoch = StochRSIIndicator(close = self.pair_index_df['Close'], **param_set).stochrsi()
+            self.pair_index_df[feature_label] = stoch.replace([np.inf, -np.inf], 0).fillna(method = 'ffill')
+
         df_to_merge = self.pair_index_df[['Date',feature_label]]
         self.df = self.df.merge(df_to_merge, on ='Date',how = 'left')
 
