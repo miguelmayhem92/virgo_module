@@ -1287,7 +1287,7 @@ class stock_eda_panel(object):
                 
             setattr(self,f'settings_{name_attr}_pricefeature' , {'type_func': type_func, 'window': window, 'distance': distance})
 
-    def pair_index_feature(self, pair_symbol, feature_label,window,threshold,ta_method='ROC',param_set=False,plot = False, save_features = False):
+    def pair_index_feature(self, pair_symbol, feature_label,threshold, window = None,ta_method='ROC',param_set=False,plot = False, save_features = False):
         """
         perform additional asset ROC feature, then a new feature is created in the main dataframe
 
