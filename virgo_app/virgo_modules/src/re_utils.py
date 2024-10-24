@@ -1604,27 +1604,11 @@ def produce_signals(result_df, feature_name, threshold, label_prediction):
 
     return result_df
 
-def edge_probas_lines(data, threshold, plot = False, look_back = 750):
-    """
-    produce a plotly plot of edges and closing prices
 
-            Parameters:
-                    data (pd.DataFrame): asset data with edge probabilities
-                    plot (boolean): if true, display plot
-                    threshold (float): edge threshold
-                    look_back (int): number of rows back to display
 
-            Returns:
-                    fig (obj): plotly go object
-    """
-    df = data[['Date','Close','proba_target_down','proba_target_up']].iloc[-look_back:]
-    
-    fig = make_subplots(specs=[[{"secondary_y": True}]])
-    fig.add_trace(go.Scatter(x=df.Date, y=df.Close,mode='lines+markers',name='Close price'))
-    fig.add_trace(go.Scatter(x=df.Date, y=df.proba_target_down,mode='lines',marker = dict(color = 'coral'),name='go down'),secondary_y=True)
-    fig.add_trace(go.Scatter(x=df.Date, y=df.proba_target_up,mode='lines',marker = dict(opacity=0.1,size=80), name='go up'),secondary_y=True)
-    fig.add_shape(type="line", xref="paper", yref="y2",x0=0.02, y0=threshold, x1=0.9, y1=threshold,line=dict(color="red",dash="dash"),)
-    fig.update_layout(title_text="sirius - edge probabilities",width=1200,height = 500)
-    if plot:
-        fig.show()
-    return fig
+def clean_cols(data, patterns):
+    drop_cols = list()
+    for pattern in patterns:
+        drop_cols = drop_cols + [ x for x in data.columns if pattern in x]
+    data = data.drop(columns = drop_cols)
+    return data
