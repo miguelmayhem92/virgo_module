@@ -69,3 +69,13 @@ def edge_shap_lines(data, dict_shap_values, plot = False, look_back = 750):
     if plot:
         fig.show()
     return fig
+
+def log_top_shap(runid, top_shap):
+    with mlflow.start_run(run_id=runid) as run:
+        mlflow.log_dict(top_shap,f"explainer/top_shap.json")
+        print('artifact was logged')
+
+def load_top_shap(runid):
+    folder = f"explainer/top_shap.json"
+    top_shap = mlflow.artifacts.load_dict(f"runs:/{runid}/{folder}")
+    return top_shap
