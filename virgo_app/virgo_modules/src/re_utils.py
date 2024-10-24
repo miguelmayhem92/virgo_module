@@ -1574,8 +1574,9 @@ def produce_probas(model,data, target_variables):
     """
     label_prediction = ['proba_'+x for x in target_variables]
     predictions = model.predict_proba(data)
+    if isinstance(predictions, list):
+        predictions = np.array([ x[:,1].T for x in predictions]).T
     predictions = pd.DataFrame(predictions, columns = label_prediction, index = data.index)
-    
     result_df = pd.concat([data, predictions], axis=1)
     result_df = result_df[['Date'] + target_variables + label_prediction]
 
@@ -1603,8 +1604,6 @@ def produce_signals(result_df, feature_name, threshold, label_prediction):
         result_df[f'acc_{type_use}_{feature_name}'] = np.where(result_df[f'signal_{type_use}_{feature_name}'] == result_df[pred_col.replace('proba_','')],1,0)
 
     return result_df
-
-
 
 def clean_cols(data, patterns):
     drop_cols = list()
