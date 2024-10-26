@@ -44,7 +44,7 @@ def get_explainerclusters(model, data, targets):
         clustermodels.append(cluster_model)
     return clustermodels
 
-def mean_shap(data, explainers, pipe_transform):
+def mean_shap(data, explainers, pipe_transform, dict_shap_values):
     t_data = pipe_transform.transform(data)
     input_features = t_data.columns
     shap_results = get_shapvalues(explainers,t_data)
@@ -55,16 +55,18 @@ def mean_shap(data, explainers, pipe_transform):
     df_shap = pd.DataFrame(shap_results_mean, columns=input_features, index=data.index)
     df_shap['Close'] = data['Close']
     df_shap['Date'] = data['Date']
+    df_shap = df_shap[['Date','Close']+list(dict_shap_values.keys())]
+    df_shap = df_shap.rename(columns =dict_shap_values)
     return df_shap
 
-def edge_shap_lines(data, dict_shap_values, plot = False, look_back = 750):
+def edge_shap_lines(data, plot = False, look_back = 750):
     ### corect labels ####
+    shap_cols = [col for col in data.columns if col not in ['Date','Close']]
     df = data.sort_values('Date').iloc[-look_back:]
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     fig.add_trace(go.Scatter(x=df.Date, y=df.Close,mode='lines+markers',marker = dict(color = 'grey'),line = dict(color = 'grey'),name='Close price'))
-    top_features_shap = dict_shap_values.keys()
-    for col in top_features_shap:
-        fig.add_trace(go.Scatter(x=df.Date, y=df[col],mode='lines+markers',name=dict_shap_values.get(col).get('tag')),secondary_y=True)
+    for col in shap_cols:
+        fig.add_trace(go.Scatter(x=df.Date, y=df[col],mode='lines+markers',name=col),secondary_y=True)
     fig.update_layout(title_text="sirius - feature power",width=1200,height = 500)
     if plot:
         fig.show()
