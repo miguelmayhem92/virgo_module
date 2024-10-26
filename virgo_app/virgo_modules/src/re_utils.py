@@ -1545,6 +1545,8 @@ def create_feature_edge(model, data,feature_name, threshold, target_variables):
     '''
     label_prediction = ['proba_'+x for x in target_variables]
     predictions = model.predict_proba(data)
+    if isinstance(predictions, list):
+        predictions = np.array([ x[:,1].T for x in predictions]).T
     predictions = pd.DataFrame(predictions, columns = label_prediction, index = data.index)
     
     result_df = pd.concat([data, predictions], axis=1)
