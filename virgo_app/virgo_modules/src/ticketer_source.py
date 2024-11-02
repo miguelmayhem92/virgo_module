@@ -1815,7 +1815,7 @@ class stock_eda_panel(object):
         self.target.append(f'mean_target')
         self.settings_target_lasts = {'steps':steps, 'type':'regression'}
 
-    def get_categorical_targets(self, horizon, flor_loss, top_gain):
+    def get_categorical_targets(self, horizon, flor_loss, top_gain, min_pos=1 , min_negs=1):
         """
         produce binary target return taking future prices. it produce two targets, one for high returns and another for low returns
 
@@ -1824,6 +1824,8 @@ class stock_eda_panel(object):
         horizon (int): number of lags and steps for future returns
         flor_loss (float): min loss return
         top_gain (float): max gain return
+        min_pos (int): minimun number of positives to count in a window for target_up
+        min_negs (int): minimun number of negatives to count in a window for target_down
 
         Returns
         -------
@@ -1841,7 +1843,7 @@ class stock_eda_panel(object):
             self.df[f'target_{i}'] = np.where(self.df[f'target_{i}'] >= top_gain,1,0)
             columns.append(f'target_{i}')
         self.df[f'target_up'] = self.df[columns].sum(axis=1)
-        self.df[f'target_up'] = np.where(self.df[f'target_up'] >=1,1,0 )
+        self.df[f'target_up'] = np.where(self.df[f'target_up'] >=min_pos,1,0 )
         self.df = self.df.drop(columns = columns)
 
         for i in range(1,horizon+1):
@@ -1851,7 +1853,7 @@ class stock_eda_panel(object):
             self.df[f'target_{i}'] = np.where(self.df[f'target_{i}'] <= flor_loss,1,0)
             columns.append(f'target_{i}')
         self.df[f'target_down'] = self.df[columns].sum(axis=1)
-        self.df[f'target_down'] = np.where(self.df[f'target_down'] >= 1,1,0 )
+        self.df[f'target_down'] = np.where(self.df[f'target_down'] >= min_negs,1,0 )
         self.df = self.df.drop(columns = columns)
 
         self.targets.append('target_up')
