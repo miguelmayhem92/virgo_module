@@ -1400,6 +1400,39 @@ class stock_eda_panel(object):
         if save_features:
             self.signals.append(signal_feature_name)
             self.signals.append(order_feature_name)
+    
+    def get_order_feature_nosignal(self,feature_name, save_features=False):
+        """
+        perform a feature that captures number of steps after the end of a signal
+
+        Parameters
+        ----------
+        feature_name (str): name of the feature
+        save_features (boolean): True to save feature configuration and feature names
+        
+        Returns
+        -------
+        None
+        """
+        order_feature_name = f'order_signal_{feature_name}'
+        ns_order_feature_name = f'ns_order_{feature_name}'
+        self.df = self.df.sort_values('Date')
+        self.df['lag_'] = self.df[order_feature_name].shift(1)
+        self.df['flag'] = np.where((self.df[order_feature_name] == 0) & (self.df['lag_']!=0),1,np.nan)
+        self.df = self.df.drop(columns=['lag_'])
+        self.df['order_'] = self.df.sort_values('Date').groupby(['flag']).cumcount() + 1
+        self.df['order_'] = self.df['order_'].fillna(method='ffill')
+        self.df['order_'] = np.where(self.df[order_feature_name]==0,self.df['order_'],0)
+        self.df = self.df.drop(columns=['flag'])
+        self.df['order_'] = self.df.sort_values('Date').groupby(['order_']).cumcount() + 1
+        norm_list = [f'norm_{feature_name}', f'z_{feature_name}', feature_name]
+        for norm_feature in norm_list:
+            self.df['order_'] = np.sign(self.df[norm_feature])*self.df['order_']
+            break
+        self.df['order_'] = np.where(self.df[order_feature_name]==0,self.df['order_'],0)
+        self.df = self.df.rename(columns={'order_':ns_order_feature_name})
+        if save_features:
+            self.signals.append(ns_order_feature_name)
 
     def compute_last_signal(self,feature, save_features = False):
         """
