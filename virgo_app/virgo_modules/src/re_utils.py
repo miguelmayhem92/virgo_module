@@ -1400,6 +1400,7 @@ def extract_data_traintest(object_stock,features_to_search,configs, target_confi
         getattr(object_stock, method_to_use)(**arguments_to_use, plot = False, save_features = False)
         if method_to_use not in ['minmax_pricefeature']:
             object_stock.produce_order_features(feature_name)
+            object_stock.get_order_feature_nosignal(feature_name)
         last_signal_featlist = configs.get('custom_transformations',{}).get('compute_last_signal', False)
         if last_signal_featlist:
                 last_signal_featlist = last_signal_featlist
