@@ -1427,8 +1427,11 @@ class stock_eda_panel(object):
         self.df['order_'] = self.df.sort_values('Date').groupby(['order_']).cumcount() + 1
         norm_list = [f'norm_{feature_name}', f'z_{feature_name}', feature_name]
         for norm_feature in norm_list:
-            self.df['order_'] = np.sign(self.df[norm_feature])*self.df['order_']
-            break
+            try:
+                self.df['order_'] = np.sign(self.df[norm_feature])*self.df['order_']
+                break
+            except:
+                pass
         self.df['order_'] = np.where(self.df[order_feature_name]==0,self.df['order_'],0)
         self.df = self.df.rename(columns={'order_':ns_order_feature_name})
         if save_features:
