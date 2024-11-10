@@ -749,6 +749,7 @@ def get_data(ticker_name:str, ticket_settings:dict, n_days:int = False, hmm_avai
     if len(discrete_features) > 0:
         for feature_name in discrete_features:
             object_stock.produce_order_features(feature_name)
+            object_stock.get_order_feature_nosignal(feature_name)
 
     if hmm_available:
         object_stock.cluster_hmm_analysis( n_clusters = None, 

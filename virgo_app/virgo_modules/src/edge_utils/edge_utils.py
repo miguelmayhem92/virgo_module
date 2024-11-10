@@ -415,3 +415,51 @@ def edge_probas_lines(data, threshold, plot = False, look_back = 750):
     if plot:
         fig.show()
     return fig
+
+def get_rolling_probs(data, window = 3,plot = False, look_back = 750):
+    """
+    produce a plotly plot of smoothed edges and closing prices
+
+            Parameters:
+                    data (pd.DataFrame): asset data with edge probabilities
+                    window (int): window size
+                    plot (boolean): if true, display plot
+                    look_back (int): number of rows back to display
+
+            Returns:
+                    fig (obj): plotly go object
+    """
+    prob_cols = ['proba_target_down','proba_target_up']
+    df = data[prob_cols+['Date','log_return','Close']].iloc[-look_back:]
+    for colx in prob_cols:
+        df[f'roll_{colx}'] = df.sort_values('Date')[colx].rolling(window, min_periods=1).mean()
+    df['roll_edge'] = np.where(df['roll_proba_target_up'] > df['roll_proba_target_down'],'up','down')
+    #order chaining
+    df['lag'] = df['roll_edge'].shift(1)
+    df['change'] = np.where(df['roll_edge']!=df['lag'],1,np.nan)
+    df['rn'] = df.sort_values('Date').groupby('change').cumcount() + 1
+    df['rn'] = np.where(df['change']==1,df['rn'],np.nan)
+    df['chain'] = df.sort_values('Date')['rn'].fillna(method='ffill')
+    df['chain_id'] = df.sort_values(['Date']).groupby(['chain','chain']).cumcount() + 1
+    
+    colors = {'up':'blue','down':'red'}
+    fig = make_subplots(
+        rows=2, cols=2,shared_xaxes=False,vertical_spacing=0.08,
+        specs=[[{"colspan": 2, "secondary_y":True}, None],[{}, {}]],
+            subplot_titles=("Smooth edge probabilities", "expected log return", "Duration"))
+    fig.add_trace(go.Scatter(x=df.Date, y=df.Close,mode='lines+markers',name='Close price'))
+    fig.add_trace(go.Scatter(x=df.Date, y=df.roll_proba_target_down,mode='lines',marker = dict(color = 'coral'),name='go down'),secondary_y=True,col=1,row=1)
+    fig.add_trace(go.Scatter(x=df.Date, y=df.roll_proba_target_up,mode='lines',marker = dict(opacity=0.1,size=80), name='go up'),secondary_y=True,col=1,row=1)
+
+    for re in df['roll_edge'].unique():
+         fig.add_trace(go.Box(x=df[df['roll_edge']==re]["log_return"],name=re,marker_color=colors.get(re),showlegend=False),col=1,row=2)
+
+    df_ = df.groupby(['roll_edge','chain'],as_index=False).agg(max_duration = ('chain_id','max'))
+    for re in df_['roll_edge'].unique():
+        fig.add_trace(go.Box(x=df_[df_['roll_edge']==re]["max_duration"],name=re,marker_color=colors.get(re),showlegend=False),col=2,row=2)
+        
+    fig.update_layout(title_text="sirius - smooth edge probabilities",width=1200,height = 1000)
+    if plot:
+        fig.show()
+    
+    return fig
