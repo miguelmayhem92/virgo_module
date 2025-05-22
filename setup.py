@@ -5,7 +5,7 @@ with open("virgo_app/README.md", "r") as f:
 
 setup(
     name="virgo_modules",
-    version="0.4.0",
+    version="0.4.1",
     description="data processing and statistical modeling using stock market data",
     package_dir={"": "virgo_app"},
     packages=find_packages(where="virgo_app"),
@@ -23,5 +23,5 @@ setup(
     extras_require={
         "dev": ["pytest>=7.0"],
     },
-    python_requires=">=3.9, <3.10",
+    python_requires=">=3.9",
 )
