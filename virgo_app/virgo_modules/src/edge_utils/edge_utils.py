@@ -9,7 +9,7 @@ from feature_engine.imputation import  MeanMedianImputer
 from feature_engine.discretisation import EqualWidthDiscretiser
 from feature_engine.datetime import DatetimeFeatures
 
-from ..transformer_utils import VirgoWinsorizerFeature, InverseHyperbolicSine, FeaturesEntropy, FeatureSelector
+from ..transformer_utils import VirgoWinsorizerFeature, InverseHyperbolicSine, FeaturesEntropy, FeatureSelector, InteractionFeatures
 
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
@@ -220,6 +220,7 @@ def data_processing_pipeline_classifier(
         invhypervolsin_features = False,
         date_features_list = False,
         entropy_set_list = False,
+        interaction_features_cont = False,
         pipeline_order = 'selector//winzorizer//discretizer//median_inputer//drop//correlation'
         ):
 
@@ -237,6 +238,7 @@ def data_processing_pipeline_classifier(
                     invhypervolsin_features (list): list of features to apply inverse hyperbolic sine
                     date_features_list (list): list of features to compute from Date field. (list of features from feature_engine)
                     entropy_set_list (list): list of dictionaries that contains features and targets to compute entropy
+                    interaction_features_cont (tuple): tuple of lists of interaction features
                     pipeline_order (str): custom pipeline order eg. selector//winzorizer//discretizer//median_inputer//drop//correlation
             Returns:
                     pipe (obj): pipeline object
@@ -249,6 +251,7 @@ def data_processing_pipeline_classifier(
     median_imputer_pipe = [('median_imputer', MeanMedianImputer())] if fillna else []
     invhypersin_pipe = [('invhypervolsin scaler', InverseHyperbolicSine(features = invhypervolsin_features))] if invhypervolsin_features else []
     datetimeFeatures_pipe = [('date features', DatetimeFeatures(features_to_extract = date_features_list, variables = 'Date', drop_original = False))] if date_features_list else []
+    interaction_features = [("interaction features", InteractionFeatures(interaction_features_cont[0], interaction_features_cont[1]))] if interaction_features_cont else []
     
     entropy_pipe = list()
     if entropy_set_list:
@@ -267,6 +270,7 @@ def data_processing_pipeline_classifier(
         'median_inputer':median_imputer_pipe,
         'arcsinh_scaler': invhypersin_pipe,
         'date_features': datetimeFeatures_pipe,
+        'interaction_features': interaction_features,
         'entropy_features' : entropy_pipe,
     }
 

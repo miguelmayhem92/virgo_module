@@ -248,3 +248,44 @@ class signal_combiner(BaseEstimator, TransformerMixin):
             if self.drop:
                 X = X.drop(columns = [self.prefix_up + column, self.prefix_low + column])
         return X
+    
+class InteractionFeatures(BaseEstimator, TransformerMixin):
+
+    """
+    Class that applies feature interaction.
+    this class is compatible with scikitlearn pipeline
+
+    Attributes
+    ----------
+    feature_list1 : list
+        list of features to combine
+    feature_list2 : list
+        list of features to combine
+
+    Methods
+    -------
+    fit(additional="", X=DataFrame, y=None):
+        fit transformation.
+    transform(X=DataFrame, y=None):
+        apply feature transformation
+    """
+
+    def __init__(self, feature_list1, feature_list2):
+        self.feature_list1 = feature_list1
+        self.feature_list2 = feature_list2
+
+    def fit(self, X, y=None):
+        return self
+    
+    def simple_div_interaction(self, data, feature1, feature2, feature_name):
+        data[feature_name] = data[feature1]*data[feature2]
+        data[feature_name] = data[feature_name].replace([np.inf, -np.inf], 0)
+        data[feature_name] = data[feature_name].fillna(0)
+        return data
+
+    def transform(self, X, y=None):
+        for f1 in self.feature_list1:
+            for f2 in self.feature_list2:
+                fn = 'iterm_'+f1.replace("norm_","")+"_"+f2.replace("norm_","")
+                X = self.simple_div_interaction(X, f1, f2, fn)
+        return X

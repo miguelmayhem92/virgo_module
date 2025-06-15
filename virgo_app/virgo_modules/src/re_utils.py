@@ -792,7 +792,7 @@ def apply_KF(self, trends):
         
 stock_eda_panel.apply_KF = apply_KF
 
-def call_ml_objects(stock_code, client, call_models = False):
+def call_ml_objects(stock_code, client, call_models = False, clean_name=False):
     '''
     call artifcats from mlflow
 
@@ -805,7 +805,11 @@ def call_ml_objects(stock_code, client, call_models = False):
     '''
     objects = dict()
     
-    registered_model_name = f'{stock_code}_models'
+    if clean_name:
+        renamed_stock_code = stock_code.replace("^","__",).replace(".","__").replace("=","__").replace("-","__")
+        registered_model_name = f'{renamed_stock_code}_models'
+    else:
+        registered_model_name = f'{stock_code}_models'
     latest_version_info = client.get_latest_versions(registered_model_name, stages=["Production"])
     latest_production_version = latest_version_info[0].version
     run_id_prod_model = latest_version_info[0].run_id
@@ -816,18 +820,27 @@ def call_ml_objects(stock_code, client, call_models = False):
     )
 
      ## calling models
-    
+    if clean_name:
+        path_hmm = f"runs:/{run_id_prod_model}/{renamed_stock_code}-hmm-model"
+    else:
+        path_hmm = f"runs:/{run_id_prod_model}/{stock_code}-hmm-model"
+
     hmm_model = mlflow.pyfunc.load_model(
-            f"runs:/{run_id_prod_model}/{stock_code}-hmm-model",
-             suppress_warnings = True
+            path_hmm,
+            suppress_warnings = True
             )
     objects['called_hmm_models'] = hmm_model
     
     if call_models:
         
+        if clean_name:
+            path_model = f"runs:/{run_id_prod_model}/{renamed_stock_code}-forecasting-model"
+        else:
+            path_model = f"runs:/{run_id_prod_model}/{stock_code}-forecasting-model"
+
         forecasting_model = mlflow.pyfunc.load_model(
-            f"runs:/{run_id_prod_model}/{stock_code}-forecasting-model",
-             suppress_warnings = True
+            path_model,
+            suppress_warnings = True
             )
         objects['called_forecasting_model'] = forecasting_model
         
