@@ -21,14 +21,14 @@ def get_conformal_classifiers(model, data, targets):
 def log_confmodels(runid, classifiers):
     with mlflow.start_run(run_id=runid) as run:
         for i,classifier in enumerate(classifiers):
-            mlflow.sklearn.log_model(classifier,f"conformal/conformal_model-{i}")
+            mlflow.sklearn.log_model(classifier,name = f"conformal_model-{i}")
         print('models were logged')
 
 def load_confmodel(runid, target_variables):
     classifiers = list()
     for i in range(len(target_variables)):
-        folder = f"conformal/conformal_model-{i}"
-        model = mlflow.sklearn.load_model(f"runs:/{runid}/{folder}")
+        folder = f"conformal_model-{i}"
+        model = mlflow.sklearn.load_model(f"runs:/{runid}/{folder}",)
         classifiers.append(model)
     return classifiers
 
