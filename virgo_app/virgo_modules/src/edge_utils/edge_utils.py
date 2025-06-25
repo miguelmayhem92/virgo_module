@@ -1,5 +1,7 @@
 import numpy as np
 import itertools
+import random
+import math
 
 from sklearn.metrics import roc_auc_score, precision_score, recall_score
 from sklearn.pipeline import Pipeline
@@ -310,7 +312,7 @@ class ExpandingMultipleTimeSeriesKFold:
         get number of splits
     """
     
-    def __init__(self, df, window_size = 100, number_window=3, overlap_size = 0):
+    def __init__(self, df, window_size = 100, number_window=3, overlap_size = 0, sample_parts = None):
         """
         Initialize object
 
@@ -320,6 +322,7 @@ class ExpandingMultipleTimeSeriesKFold:
         number_window (int): number of train splits
         window_size (int): window size data
         overlap_size (int): overlap size
+        sample_individuals (tuple(float, str)): sample partition units to remove from the train set, tuple()
 
         Returns
         -------
@@ -329,6 +332,7 @@ class ExpandingMultipleTimeSeriesKFold:
         self.number_window = number_window
         self.window_size = window_size
         self.overlap_size = overlap_size
+        self.sample_parts = sample_parts
         
     def split(self, X, y, groups=None):
         """
@@ -372,9 +376,21 @@ class ExpandingMultipleTimeSeriesKFold:
             max_train_date = max(train_dates)
             min_test_date, max_test_date = min(test_dates), max(test_dates)
             
-            cut = cut - (self.window_size - self.overlap_size) 
-        
-            train_index = self.df[self.df.index.get_level_values('Date_i') <= max_train_date].index.get_level_values('i')
+            cut = cut - (self.window_size - self.overlap_size)
+
+            if self.sample_parts:
+                sample_part = self.sample_parts[0]
+                part_col = self.sample_parts[1]
+                unique_parts = list(self.df.index.get_level_values(part_col).unique())
+                random.shuffle(unique_parts)
+                n_select = math.ceil(len(unique_parts)*sample_part)
+                to_drop = unique_parts[0:n_select]
+                train_index = self.df[
+                    (self.df.index.get_level_values('Date_i') <= max_train_date) 
+                    & 
+                    (~self.df.index.get_level_values(part_col).isin(to_drop))].index.get_level_values('i')
+            else:
+                train_index = self.df[self.df.index.get_level_values('Date_i') <= max_train_date].index.get_level_values('i')
             test_index = self.df[(self.df.index.get_level_values('Date_i') >= min_test_date) & (self.df.index.get_level_values('Date_i') <= max_test_date)].index.get_level_values('i')
         
             yield train_index, test_index

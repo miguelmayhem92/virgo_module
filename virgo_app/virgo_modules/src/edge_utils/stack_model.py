@@ -3,7 +3,7 @@ import pandas as pd
 
 from sklearn.base import BaseEstimator, ClassifierMixin
 
-class MyStackingClassifierMultiClass(BaseEstimator, ClassifierMixin):
+class MyStackingClassifierMultiClass(ClassifierMixin, BaseEstimator):
     def __init__(self,  estimators, meta_estimators,targets,perc=None,stack_size=None, **kwargs):
         self.estimators = estimators
         self.meta_estimators = meta_estimators
@@ -14,6 +14,7 @@ class MyStackingClassifierMultiClass(BaseEstimator, ClassifierMixin):
             raise Exception('set one option')
         self.stack_size = stack_size
         self.perc = perc
+        
     def get_index_training(self, X):
         if self.stack_size:
             unique_dates = list(X.index.get_level_values('Date_i').unique())
@@ -53,6 +54,8 @@ class MyStackingClassifierMultiClass(BaseEstimator, ClassifierMixin):
                 meta_preds_df[metacols],
                 y[X.index.get_level_values('i').isin(meta_indexes)][self.targets[i]]
             )
+        self.is_fitted_ = True
+        self.classes_ = np.array([[0,1],[0,1]])
         
     def predict_proba(self, X):
         metas_pred = dict()
