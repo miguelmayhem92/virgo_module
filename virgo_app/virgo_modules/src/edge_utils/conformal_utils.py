@@ -1,44 +1,79 @@
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
-from mapie.classification import MapieClassifier
 from sklearn.pipeline import Pipeline
 import mlflow
+import pandas as pd
 import numpy as np
+from sklearn.base import BaseEstimator, ClassifierMixin
+from mapie.classification import SplitConformalClassifier
 
+class ConformalStack(mlflow.pyfunc.PythonModel):
+    def __init__(self, model,targets, alphas):
+        self.model = model
+        self.targets = targets
+        self.alphas = alphas
+    def fit(self, data):
+        self.classifiers = dict()
+        for i,target in enumerate(self.targets):
+            st = SingleStack(self.model["model"],i)
+            st.fit()
+            seg_model = Pipeline([ 
+                ('pipe',self.model['pipe_transform']),
+                ('modelbase',st)
+            ])
+            mapie_class = SplitConformalClassifier(seg_model, prefit=True, random_state=123, conformity_score="lac", confidence_level=1-np.array(self.alphas))
+            mapie_class.conformalize(data, data[self.targets[i]].values)
+            self.classifiers[target] = mapie_class
+    def predict_conformal(self, data, ):
+        for target in self.targets:
+            prefix = target+"_conf"
+            _, y_pis = self.classifiers[target].predict_set(data)
+            for i,alpha in enumerate(self.alphas):
+                data[f'{prefix}-{alpha}'] = y_pis[:,1,i]
+                data[f'{prefix}-{alpha}'] = np.where(data[f'{prefix}-{alpha}'] == True,alpha,0)
+        return data
+    
 
-def get_conformal_classifiers(model, data, targets):
-    classfiers = list()
-    for i, _ in enumerate(model['model'].estimators_):
-        seg_model = Pipeline([ 
-            ('pipe',model['pipe_transform']),
-            ('model',model['model'].estimators_[i])
-        ])
-        mapie_class = MapieClassifier(seg_model, cv='prefit', random_state=123, method="lac")
-        mapie_class.fit(data, data[targets[i]].values)
-        classfiers.append(mapie_class)
-    return classfiers
+class SingleStack(ClassifierMixin, BaseEstimator):
+    def __init__(self, model, estimator_index):
+        self.model = model
+        self.estimator_index = estimator_index
+        
+    def fit(self):
+        self._is_fitted = True
+        self.classes_ = [0,1]
 
-def log_confmodels(runid, classifiers):
-    with mlflow.start_run(run_id=runid) as run:
-        for i,classifier in enumerate(classifiers):
-            mlflow.sklearn.log_model(classifier,name = f"conformal_model-{i}")
-        print('models were logged')
+    def predict_proba(self, X):
+        metas_pred = dict()
+        for i,cont in enumerate(self.model.estimators, start=1):
+            _,estimator = cont
+            meta_pred = estimator.predict_proba(X)
+            metas_pred[f"meta{i}0"] = meta_pred[0][:,1]
+            metas_pred[f"meta{i}1"] = meta_pred[1][:,1]
+        self.meta_preds_df__ = pd.DataFrame(metas_pred)
 
-def load_confmodel(runid, target_variables):
-    classifiers = list()
-    for i in range(len(target_variables)):
-        folder = f"conformal_model-{i}"
-        model = mlflow.sklearn.load_model(f"runs:/{runid}/{folder}",)
-        classifiers.append(model)
-    return classifiers
-
-
-def get_conformal_prediction(classifier, alphas, data, prefix='conf'):
-    _, y_pis = classifier.predict(data, alpha=alphas)
-    for i,alpha in enumerate(alphas):
-        data[f'{prefix}-{alpha}'] = y_pis[:,1,i]
-        data[f'{prefix}-{alpha}'] = np.where(data[f'{prefix}-{alpha}'] == True,alpha,0)
-    return data
+        prediction_vector = list()
+        for i,cont in enumerate(self.model.meta_estimators, start=0):
+            _,estimator = cont
+            metacols = [f"meta{j}{i}" for j in range(1,len(self.model.estimators)+1)]
+            preds = estimator.predict_proba(self.meta_preds_df__[metacols].values)
+            prediction_vector.append(preds)
+        return prediction_vector[self.estimator_index]
+        
+    def predict(self, X):
+        prediction_vector = list()
+        _ = self.predict_proba(X)
+        for i,cont in enumerate(self.model.meta_estimators, start=0):
+            _,estimator = cont
+            metacols = [f"meta{j}{i}" for j in range(1,len(self.model.estimators)+1)]
+            preds = estimator.predict(self.meta_preds_df__[metacols].values)
+            prediction_vector.append(preds) 
+        
+        p = np.array(tuple(prediction_vector))
+        return p.reshape((p.shape[1],p.shape[0]))[:,self.estimator_index]
+    
+    def __sklearn_is_fitted__(self):
+        return hasattr(self, "_is_fitted") and self._is_fitted
 
 def edge_conformal_lines(data, alphas,threshold = 0.6, plot = False, look_back = 750, offset = 0.08):
     ### corect labels ####
