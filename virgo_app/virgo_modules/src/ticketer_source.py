@@ -1,7 +1,7 @@
 import yfinance as yf
 import pandas as pd
 import numpy as np
-import json
+import gc
 
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -138,6 +138,10 @@ class stock_eda_panel(object):
         perform analysis of lags of the mean rolling log return
     compute_clip_bands(feature_name=str,threshold=float):
         compute outlier detection for a given signal, Note that this follows mean reversion procedure and feature has to be stationary. Also botton and roof resulting signals is attached to the dataframe
+    extract_sec_data(symbol=str, base_columns=list(str), rename_columns=dict):
+        extract new asset data and merge it to the main asset data
+    lag_log_return(lags=int, feature=str, feature_name=str):
+        compute log return given some lags
     signal_plotter(feature_name=str):
         display analysis plot of a feature with high and low signals
     log_features_standard(feature_name=str):
@@ -666,6 +670,63 @@ class stock_eda_panel(object):
 
         self.df[f'signal_low_{feature_name}'] = np.where( (self.df[f'norm_{feature_name}'] < self.df[f'lower_{feature_name}'] ), 1, 0)
         self.df[f'signal_up_{feature_name}'] = np.where( (self.df[f'norm_{feature_name}'] > self.df[f'upper_{feature_name}'] ), 1, 0)
+
+    def extract_sec_data(self, symbol, base_columns, rename_columns=None):
+        """
+        extract new asset data and merge it to the main asset data
+
+        Parameters
+        ----------
+        symbol (str): symbol to extract data
+        base_columns (list): list of columns to persist
+        rename_columns (dict): map of the new column names using pd.DataFrame.rename()
+
+        Returns
+        -------
+        None
+        """
+        begin_date = self.today - relativedelta(days = self.n_days)
+        begin_date_str = begin_date.strftime('%Y-%m-%d')
+        
+        stock = yf.Ticker(symbol)
+        df = stock.history(period=self.data_window)
+        df = df.sort_values('Date')
+        df.reset_index(inplace=True)
+        df['Date'] = pd.to_datetime(df['Date'], format='mixed',utc=True).dt.date
+        df['Date'] = pd.to_datetime(df['Date'])
+        df = df[df.Date >= begin_date_str ]
+        df = df[base_columns]
+        if rename_columns:
+            df = df.rename(columns=rename_columns)
+        right_df = df.copy()
+        
+        dates_vector = self.df.Date.to_frame()
+        right_df = dates_vector.merge(right_df, on ='Date',how = 'left')
+        right_df = right_df.fillna(method = 'bfill')
+        right_df = right_df.fillna(method = 'ffill')
+
+        self.df = self.df.merge(right_df, on ='Date',how = 'left')
+        self.df = self.df.sort_values("Date")
+        del right_df
+        gc.collect()
+
+    def lag_log_return(self, lags, feature, feature_name=False):
+        """
+        compute log return given some lags
+
+        Parameters
+        ----------
+        lags (int): lag to apply log return
+        feature (str): feature to apply log return
+        feature_name (str): rename resuling name
+
+        Returns
+        -------
+        None
+        """
+
+        feature_name = feature_name if feature_name else f"{feature}_log_return"
+        self.df[feature_name] = np.log(self.df[feature]/self.df[feature].shift(lags))
 
     def signal_plotter(self, feature_name):
 
@@ -2304,33 +2365,3 @@ class analyse_index(stock_eda_panel):
     
         self.states_result = result
 
-def get_relevant_beta(data_market, ticket_name,  show_plot = True, save_path = False, save_aws = False, aws_credentials = False):
-    '''
-    select relevant beta result data of a given asset
-
-            Parameters:
-                    data_market (pd.DataFrame): dataframe of the market results 
-                    ticket_name (str): name of the asset
-                    show_plot (bool): If tru, plot results
-                    save_path (str): local path for saving e.g r'C:/path/to/the/file/'
-                    save_aws (str):  remote key in s3 bucket path e.g. 'path/to/file/'
-                    aws_credentials (dict): dict of the aws credentials
-
-            Returns:
-                    selection (pd.DataFrame): dataframe of the most relevant beta
-    '''
-    all_betas = data_market[data_market.asset == ticket_name].sort_values('general_r', ascending = False)
-    all_betas['gen_r2'] = all_betas.general_r ** 2
-    all_betas['sampl_r2'] = all_betas.sample_r ** 2
-    selection = all_betas.sort_values('gen_r2',ascending =False).head(2).sort_values('sampl_r2',ascending =False).head(1).drop(columns = ['gen_r2','sampl_r2'])
-
-    if show_plot:
-        print(selection)
-    if save_path:
-        result_plot_name = f'market_best_fit.csv'
-        selection.to_csv(save_path+result_plot_name)
-
-    if save_path and save_aws:
-        # upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = f'market_plots/{ticket_name}/'+result_plot_name,input_path = save_path+result_plot_name)
-        upload_file_to_aws(bucket = 'VIRGO_BUCKET', key = save_aws + result_plot_name, input_path = save_path + result_plot_name, aws_credentials = aws_credentials)
-    return selection
