@@ -373,8 +373,10 @@ class SplineMarketReturnJumpWaves(BaseEstimator, TransformerMixin):
             #self.X_aggregated = X_aggregated
         return self
 
-    def transform(self, X, y=None):
-        for return_feature_name in self.return_feature_names:
+    def transform(self, X, y=None, plot =False):
+        if plot:
+            fig, ax = plt.subplots(len(self.return_feature_names),1)
+        for i, return_feature_name in enumerate(self.return_feature_names):
             for target in self.target_variables:
                 model = self.glms[return_feature_name][target].get("model")
                 vect = X[return_feature_name]
@@ -385,6 +387,9 @@ class SplineMarketReturnJumpWaves(BaseEstimator, TransformerMixin):
                 X[f"{self.feature_label}_{return_feature_name}_{target}"] = model.predict(
                     X_transformed
                 )
+                if plot:
+                    pred = model.predict(X_transformed)
+                    ax[i].scatter(X, np.exp(pred), alpha=0.2, s=1)
         return X
     
     def _get_knot(self, input):
