@@ -809,13 +809,11 @@ class stock_eda_panel(object):
             .transform(lambda x: x.rolling(ma2, min_periods=1).mean())
         )
 
-        print('--------------------------------------------------------------------')
         if save_features:
             self.log_features_standard(feature_name)
             self.settings_relative_spread_ma = {'ma1':ma1, 'ma2':ma2, 'threshold':threshold}
 
         if plot:
-
             self.signal_plotter(feature_name)
 
     def pair_feature(self, pair_symbol, plot = False):
@@ -870,6 +868,24 @@ class stock_eda_panel(object):
             plt.plot(self.df['Date'],asset_2_values,label = asset_2)
             plt.legend()
             plt.show()
+
+    def smooth_logrets_interaction_term(self, feature_interact_with, resulting_feature_name="persisted_clip_diff_smooths", rollmean_window = 5, ext_threhold=0.015, persist_days = 3, save_features=False):
+        """
+        create an interaction term that is going to compare the distance of asset wolling window mean and market rolling window mean.
+        then get the outliers or high values using abs and this value persist for some days
+        goal persist big differences of market and asset returns
+
+        feature_interact_with: name of the market return
+        rollmean_window: rolling window or smoothing number of days
+        ext_threhold: threshold
+        persist_days: number of days to persis the signal
+        """
+        self.df["smooth_log_return"] = self.df['log_return'].rolling(rollmean_window).mean().values
+        self.df["smooth_market_log_return"] = self.df[feature_interact_with].rolling(rollmean_window).mean().values
+        self.df["diff_smooths"] = self.df["smooth_market_log_return"]-self.df["smooth_log_return"]
+        self.df["clip_diff_smooths"] = np.where(np.abs(self.df["diff_smooths"]) > ext_threhold, self.df["diff_smooths"] , 0)
+        self.df[resulting_feature_name] = self.df['clip_diff_smooths'].rolling(persist_days).mean().values
+        self.df = self.df.drop(columns=["smooth_log_return","smooth_market_log_return","diff_smooths","clip_diff_smooths"])
 
     def calculate_cointegration(self,series_1, series_2):
         """

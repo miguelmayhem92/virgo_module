@@ -11,7 +11,14 @@ from feature_engine.imputation import  MeanMedianImputer
 from feature_engine.discretisation import EqualWidthDiscretiser
 from feature_engine.datetime import DatetimeFeatures
 
-from ..transformer_utils import VirgoWinsorizerFeature, InverseHyperbolicSine, FeaturesEntropy, FeatureSelector, InteractionFeatures
+from ..transformer_utils import (
+    VirgoWinsorizerFeature,
+    InverseHyperbolicSine,
+    FeaturesEntropy,
+    FeatureSelector,
+    InteractionFeatures,
+    SplineMarketReturnJumpWaves
+)
 
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
@@ -223,6 +230,7 @@ def data_processing_pipeline_classifier(
         date_features_list = False,
         entropy_set_list = False,
         interaction_features_cont = False,
+        spline_regression_config = False,
         pipeline_order = 'selector//winzorizer//discretizer//median_inputer//drop//correlation'
         ):
 
@@ -254,7 +262,12 @@ def data_processing_pipeline_classifier(
     invhypersin_pipe = [('invhypervolsin scaler', InverseHyperbolicSine(features = invhypervolsin_features))] if invhypervolsin_features else []
     datetimeFeatures_pipe = [('date features', DatetimeFeatures(features_to_extract = date_features_list, variables = 'Date', drop_original = False))] if date_features_list else []
     interaction_features = [("interaction features", InteractionFeatures(interaction_features_cont[0], interaction_features_cont[1]))] if interaction_features_cont else []
-    
+    spline_features = [("spline features", SplineMarketReturnJumpWaves(
+        return_feature_names=spline_regression_config.get("return_feature_names"),
+        target_variables=spline_regression_config.get("target_variables"),
+        feature_label=spline_regression_config.get("feature_label"),
+    ))] if spline_regression_config else []
+
     entropy_pipe = list()
     if entropy_set_list:
         for setx_ in entropy_set_list:
@@ -274,6 +287,7 @@ def data_processing_pipeline_classifier(
         'date_features': datetimeFeatures_pipe,
         'interaction_features': interaction_features,
         'entropy_features' : entropy_pipe,
+        "spline_features": spline_features,
     }
 
     pipeline_steps = pipeline_order.split('//')

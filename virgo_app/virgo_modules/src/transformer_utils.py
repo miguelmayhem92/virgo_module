@@ -1,6 +1,11 @@
+import gc
+
 from sklearn.base import BaseEstimator, TransformerMixin
 import pandas as pd
 import numpy as np
+import statsmodels.api as sm
+from patsy import dmatrix
+import matplotlib.pyplot as plt
 
 class InverseHyperbolicSine(BaseEstimator, TransformerMixin):
 
@@ -289,3 +294,103 @@ class InteractionFeatures(BaseEstimator, TransformerMixin):
                 fn = 'iterm_'+f1.replace("norm_","")+"_"+f2.replace("norm_","")
                 X = self.simple_div_interaction(X, f1, f2, fn)
         return X
+    
+
+class SplineMarketReturnJumpWaves(BaseEstimator, TransformerMixin):
+    """
+    Class that gets a feature returns and performs countings so that a spline regression model can be fitted
+
+    Attributes
+    ----------
+    return_feature_names : list
+        list of the name of the features to apply spline regresion
+    target_variables : list
+        list of target features
+    feature_label : str
+        prefix for the new features.
+    sample_perc : float
+        sample size of the traninig data taking into consideration time
+
+    Methods
+    -------
+    fit(additional="", X=DataFrame, y=DataFrame):
+        fit transformation.
+    transform(X=DataFrame, y=None):
+        apply feature transformation
+    """
+
+    def __init__(self, return_feature_names, target_variables, feature_label,
+                  sample_perc=0.5,parts = 6, e_floor=-0.001,e_top=0.0001, d=3):
+        self.sample_perc = sample_perc
+        self.return_feature_names=return_feature_names
+        self.target_variables = target_variables
+        self.glms = dict()
+        self.feature_label = feature_label
+        self.parts = parts
+        self.e_floor = e_floor
+        self.e_top = e_top
+        self.d = d
+    def fit(self, X, y, plot = False):
+        #complete dataset with y
+        X_set=X.copy()
+        X_set[self.target_variables] = y
+        #sampling
+        if plot:
+            fig, ax = plt.subplots(len(self.return_feature_names),1)
+        for i,return_feature_name in enumerate(self.return_feature_names):
+            X_aggregated = (
+                X_set
+                .groupby("Date",as_index=False)
+                .agg(
+                    count_target_up = ("target_up","sum"),
+                    count_target_down = ("target_down","sum"),
+                    return_feature = (return_feature_name,"max"),
+                )
+                .sort_values("Date",ascending=True)
+                .dropna()
+                .copy()
+            )
+            del X
+            gc.collect()
+            nlines = X_aggregated.shape[0]
+            threshold = int(round((1-nlines*self.sample_perc),0))
+            train_ = X_aggregated.iloc[:threshold,:]
+            self.glms[return_feature_name] = dict()
+            for target in self.target_variables:
+                X = train_[["return_feature"]].round(4).values.reshape(-1, 1)
+                y = np.log(train_.dropna()[f"count_{target}"].values + 1)
+                knot_str = self._get_knot(X)
+                transformed_x = dmatrix(f"bs(train, knots=({knot_str}), degree=3, include_intercept=False)", {"train": X}, return_type='dataframe')
+                model = sm.GLM(y, transformed_x).fit()
+                self.glms[return_feature_name][target] = {
+                    "model":model,
+                }
+                if plot:
+                    x_transfomed = dmatrix(f"bs(valid, knots=({knot_str}), degree={self.d}, include_intercept=False)", {"valid":X}, return_type='dataframe')
+                    pred = model.predict(x_transfomed)
+                    ax[i].scatter(X, np.exp(y),s=2,alpha=0.2)
+                    ax[i].scatter(X, np.exp(pred), alpha=0.2, s=1)
+            #self.X_aggregated = X_aggregated
+        return self
+
+    def transform(self, X, y=None):
+        for return_feature_name in self.return_feature_names:
+            for target in self.target_variables:
+                model = self.glms[return_feature_name][target].get("model")
+                vect = X[return_feature_name]
+                knot_str = self._get_knot(vect)
+                X_transformed = dmatrix(f"bs(valid, knots=({knot_str}), degree={self.d}, include_intercept=False)",
+                    {"valid":vect.fillna(0)},
+                    return_type='dataframe')
+                X[f"{self.feature_label}_{return_feature_name}_{target}"] = model.predict(
+                    X_transformed
+                )
+        return X
+    
+    def _get_knot(self, input):
+        min_, max_ = np.min(input)-self.e_floor, np.max(input)+self.e_top
+        r = (max_ - min_)/self.parts
+        knot_tuple = [str(i*r+min_) for i,_ in enumerate(range(self.parts),start=0)]
+        knot_str = ",".join(knot_tuple)
+        knot_str = f"({knot_str})"
+        return knot_str

@@ -1421,6 +1421,12 @@ def extract_data_traintest(object_stock,features_to_search,configs, target_confi
                 last_signal_featlist = last_signal_featlist.split('//')
                 if feature_name in last_signal_featlist:
                     object_stock.compute_last_signal(feature_name, False)
+    market_interaction_features = configs.get('custom_transformations',{}).get('market_interaction_features', False)
+    if market_interaction_features:
+        for stage in market_interaction_features.keys():
+            method_to_use = market_interaction_features.get(stage).get("method")
+            arguments_to_use = market_interaction_features.get(stage).get("parameters")
+            getattr(object_stock, method_to_use)(**arguments_to_use)
     # geting targets
     object_stock.get_categorical_targets(**target_params_up)
     object_stock.df = object_stock.df.drop(columns = ['target_down']).rename(columns = {'target_up':'target_up_save'})
