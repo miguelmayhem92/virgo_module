@@ -63,5 +63,5 @@ def download_file_to_aws(bucket,key, aws_credentials):
             aws_secret_access_key = aws_credentials['AWS_SECRET_ACCESS_KEY']
         )
     obj = s3c.get_object(Bucket= bucket , Key = key)
-    df = pd.read_csv(BytesIO(obj['Body'].read()), encoding='utf8')
+    df = pd.read_csv(BytesIO(obj['Body'].read()), encoding='utf8', sep = ';')
     return df
