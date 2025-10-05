@@ -450,7 +450,7 @@ def edge_probas_lines(data, threshold, plot = False, look_back = 750):
         fig.show()
     return fig
 
-def get_rolling_probs(data, window = 3,plot = False, look_back = 750):
+def get_rolling_probs(data, window = 3,plot = False, look_back = 750, rets_eval=7):
     """
     produce a plotly plot of smoothed edges and closing prices
 
@@ -465,6 +465,7 @@ def get_rolling_probs(data, window = 3,plot = False, look_back = 750):
     """
     prob_cols = ['proba_target_down','proba_target_up']
     df = data[prob_cols+['Date','log_return','Close']].iloc[-look_back:]
+    df["eval_rets"] = (df["Close"]/df["Close"].shift(rets_eval)-1)*100
     for colx in prob_cols:
         df[f'roll_{colx}'] = df.sort_values('Date')[colx].rolling(window, min_periods=1).mean()
     df['roll_edge'] = np.where(df['roll_proba_target_up'] > df['roll_proba_target_down'],'up','down')
@@ -480,14 +481,14 @@ def get_rolling_probs(data, window = 3,plot = False, look_back = 750):
     fig = make_subplots(
         rows=2, cols=2,shared_xaxes=False,vertical_spacing=0.08,
         specs=[[{"colspan": 2, "secondary_y":True}, None],[{}, {}]],
-            subplot_titles=("Smooth edge probabilities", "expected log return", "Duration"))
+            subplot_titles=("Smooth edge probabilities", f"expected return {rets_eval} days", "Duration"))
     fig.add_trace(go.Scatter(x=df.Date, y=df.Close,mode='lines+markers',name='Close price'))
     fig.add_trace(go.Scatter(x=df.Date, y=df.roll_proba_target_down,mode='lines',marker = dict(color = 'coral'),name='go down'),secondary_y=True,col=1,row=1)
     fig.add_trace(go.Scatter(x=df.Date, y=df.roll_proba_target_up,mode='lines',marker = dict(opacity=0.1,size=80), name='go up'),secondary_y=True,col=1,row=1)
 
     for re in df['roll_edge'].unique():
-         fig.add_trace(go.Box(x=df[df['roll_edge']==re]["log_return"],name=re,marker_color=colors.get(re),showlegend=False),col=1,row=2)
-
+         fig.add_trace(go.Box(x=df[df['roll_edge']==re]["eval_rets"],name=re,marker_color=colors.get(re),showlegend=False),col=1,row=2)
+         fig.add_vline(x=0, line_width=2, line_dash="dash", line_color="grey", col=1,row=2)
     df_ = df.groupby(['roll_edge','chain'],as_index=False).agg(max_duration = ('chain_id','max'))
     for re in df_['roll_edge'].unique():
         fig.add_trace(go.Box(x=df_[df_['roll_edge']==re]["max_duration"],name=re,marker_color=colors.get(re),showlegend=False),col=2,row=2)
