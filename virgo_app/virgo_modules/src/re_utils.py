@@ -1421,6 +1421,11 @@ def extract_data_traintest(object_stock,features_to_search,configs, target_confi
                 last_signal_featlist = last_signal_featlist.split('//')
                 if feature_name in last_signal_featlist:
                     object_stock.compute_last_signal(feature_name, False)
+    volatility_features = configs.get('custom_transformations',{}).get('volatility_features', False)
+    if volatility_features:
+        for al in volatility_features:
+            object_stock.lag_log_return(lags = al, feature="Close", feature_name=f"asset_{al}_logreturn")
+            object_stock.produce_log_volatility(trad_days=al,feature=f"asset_{al}_logreturn",feature_name=f"asset_{al}_volatility")
     market_interaction_features = configs.get('custom_transformations',{}).get('market_interaction_features', False)
     if market_interaction_features:
         for stage in market_interaction_features.keys():

@@ -142,6 +142,8 @@ class stock_eda_panel(object):
         extract new asset data and merge it to the main asset data
     lag_log_return(lags=int, feature=str, feature_name=str):
         compute log return given some lags
+    produce_log_volatility(trad_days=int, feature=str, feature_name=str):
+        compute volatility
     signal_plotter(feature_name=str):
         display analysis plot of a feature with high and low signals
     log_features_standard(feature_name=str):
@@ -727,6 +729,23 @@ class stock_eda_panel(object):
 
         feature_name = feature_name if feature_name else f"{feature}_log_return"
         self.df[feature_name] = np.log(self.df[feature]/self.df[feature].shift(lags))
+    
+    def produce_log_volatility(self, trad_days, feature, feature_name=False):
+        """
+        compute log return given some lags
+
+        Parameters
+        ----------
+        trad_days (int): window function to calculate standard deviation
+        feature (str): feature to apply computation
+        feature_name (str): resulting feature name
+
+        Returns
+        -------
+        None
+        """
+        feature_name = feature_name if feature_name else f"{feature}_log_return_{trad_days}"
+        self.df[feature_name] = self.df.sort_values("Date")[feature].rolling(window = trad_days).std()*np.sqrt(252)
 
     def signal_plotter(self, feature_name):
 
