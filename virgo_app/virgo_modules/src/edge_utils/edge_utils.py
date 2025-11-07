@@ -326,7 +326,7 @@ class ExpandingMultipleTimeSeriesKFold:
         get number of splits
     """
     
-    def __init__(self, df, window_size = 100, number_window=3, overlap_size = 0, sample_parts = None):
+    def __init__(self, df, window_size = 100, number_window=3, overlap_size = 0, sample_parts = None, embargo = 0):
         """
         Initialize object
 
@@ -337,7 +337,8 @@ class ExpandingMultipleTimeSeriesKFold:
         window_size (int): window size data
         overlap_size (int): overlap size
         sample_individuals (tuple(float, str)): sample partition units to remove from the train set, tuple()
-
+        embargo int: drop tail on training data
+        
         Returns
         -------
         None
@@ -347,6 +348,7 @@ class ExpandingMultipleTimeSeriesKFold:
         self.window_size = window_size
         self.overlap_size = overlap_size
         self.sample_parts = sample_parts
+        self.embargo = embargo
         
     def split(self, X, y, groups=None):
         """
@@ -381,7 +383,7 @@ class ExpandingMultipleTimeSeriesKFold:
         for fold in range(self.number_window):
             
             topcut = cut-self.window_size
-            train_dates = unique_dates[:-cut]
+            train_dates = unique_dates[:-(cut+self.embargo)]
             test_dates = unique_dates[-cut:-topcut]
             
             if topcut == 0:
