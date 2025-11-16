@@ -174,6 +174,12 @@ class stock_eda_panel(object):
         perfom fast stochastic oscilator or william indicator
     vortex_feature(window=int, threshold=float, plot=boolean, save_features=boolean):
         perform vortex oscilator
+    expected_return(trad_days:int, feature:str, feature_name:str):
+        perform expected log return based on inversed shift of historical data and applying
+    rolling_feature(feature: str, window:int, function:callable):
+        perform rolling (non expanding) window operation for a given feature
+    time_distance(feature_base:str,feature_window:str, result_feature_name:str, max_window:int):
+        perform distancce time to a given window feature
     minmax_pricefeature(type_func=str, window=int, distance=bolean, save_features=boolean)
         get relative price/ distance feature with respect to the min/max price in a given window
     pair_index_feature(pair_symbol=str, feature_label=str, window=int, threshold=float, plot=boolean, save_features=boolean):
@@ -1382,6 +1388,73 @@ class stock_eda_panel(object):
                 name_attr = f'{type_func}_relprice'
                 
             setattr(self,f'settings_{name_attr}_pricefeature' , {'type_func': type_func, 'window': window, 'distance': distance})
+    
+    def expected_return(self, trad_days, feature, feature_name=False):
+        """
+        perform expected log return based on inversed shift of historical data and applying
+
+        Parameters
+        ----------
+        trad_days (int): window or differenciation
+        feature (int): feature to apply expected log return
+        feature_name (str): resulting feature name
+        
+        Returns
+        -------
+        None
+        """
+        feature_name = feature_name if feature_name else f"{feature}_log_return_{trad_days}"
+        tmp_names = list()
+        for ind in range(1,trad_days+1):
+            tmp_name = f"expected_{ind}"
+            self.df[tmp_name] = self.df[feature].shift(-ind)/self.df[feature]-1
+            tmp_names.append(tmp_name)
+        self.df[feature_name] = self.df[tmp_names].max(axis=1)
+        self.df = self.df.drop(columns = tmp_names)
+    
+    def rolling_feature(self, feature, window, function):
+        """
+        perform rolling (non expanding) window operation for a given feature
+
+        Parameters
+        ----------
+        feature (int): feature to apply window operation
+        window (int): window size
+        function (str): window function e.g MIN, MAX, AVG
+        
+        Returns
+        -------
+        None
+        """
+        feature_name = f"{feature}_{window}_{function}"
+        self.df[feature_name] = getattr(self.df.sort_values("Date")[feature].rolling(window), function)()
+
+    def time_distance(self, feature_base,feature_window, result_feature_name, max_window=None):
+        """
+        perform distancce time to a given window feature
+
+        Parameters
+        ----------
+        feature_base (str): name of the underlaying feature
+        feature_window (str): name of the window feature
+        result_feature_name (str): resulting feature name
+        max_window (int): apply a top value to the time to distance feature
+        
+        Returns
+        -------
+        None
+        """
+        self.df["Date_pivot"] = np.nan
+        self.df["Date_pivot"] = self.df["Date_pivot"].case_when([
+            (self.df[feature_base] == self.df[feature_window], self.df["Date"]), 
+
+        ])
+        self.df["Date_pivot"] = self.df.sort_values("Date")["Date_pivot"].fillna(method="ffill")
+        self.df[result_feature_name] = self.df["Date"] - self.df["Date_pivot"]
+        self.df[result_feature_name] = self.df[result_feature_name].dt.days
+        if max_window:
+            self.df[result_feature_name] = self.df[result_feature_name].clip(0,max_window)
+        self.df = self.df.drop(columns = ["Date_pivot"])
 
     def pair_index_feature(self, pair_symbol, feature_label,threshold, window = None,ta_method='ROC',param_set=False,plot = False, save_features = False):
         """

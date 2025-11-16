@@ -1,11 +1,12 @@
 from setuptools import find_packages, setup
+import virgo_modules as vm
 
 with open("virgo_app/README.md", "r") as f:
     long_description = f.read()
 
 setup(
     name="virgo_modules",
-    version="0.8.4",
+    version=vm.__version__,
     description="data processing and statistical modeling using stock market data",
     package_dir={"": "virgo_app"},
     packages=find_packages(where="virgo_app"),
