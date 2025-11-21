@@ -1,5 +1,5 @@
 from setuptools import find_packages, setup
-import virgo_modules as vm
+import virgo_app.virgo_modules as vm
 
 with open("virgo_app/README.md", "r") as f:
     long_description = f.read()

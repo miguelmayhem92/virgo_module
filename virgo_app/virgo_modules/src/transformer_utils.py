@@ -73,7 +73,6 @@ class VirgoWinsorizerFeature(BaseEstimator, TransformerMixin):
         return X
 
 class FeatureSelector(BaseEstimator, TransformerMixin):
-
     """
     Class that applies selection of features.
     this class is compatible with scikitlearn pipeline
@@ -399,3 +398,31 @@ class SplineMarketReturnJumpWaves(BaseEstimator, TransformerMixin):
         knot_str = ",".join(knot_tuple)
         knot_str = f"({knot_str})"
         return knot_str
+
+class SmartDropFeatures(BaseEstimator, TransformerMixin):
+    """
+    Class that applies drop feature if feature exists.
+    this class is compatible with scikitlearn pipeline
+
+    Attributes
+    ----------
+    columns : list
+        list of features to drop
+
+    Methods
+    -------
+    fit(additional="", X=DataFrame, y=None):
+        fit transformation.
+    transform(X=DataFrame, y=None):
+        apply feature transformation
+    """
+
+    def __init__(self, columns):
+        self.columns = columns
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X, y=None):
+        drop_list = [x for x in self.columns if x in X.columns]
+        return X.drop(columns = drop_list)
