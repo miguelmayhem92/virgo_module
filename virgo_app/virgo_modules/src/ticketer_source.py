@@ -148,6 +148,8 @@ class stock_eda_panel(object):
         display analysis plot of a feature with high and low signals
     log_features_standard(feature_name=str):
         save resulting feature names in an standard structure
+    min_max_window_ts_scaler_feature(window=int, feature=str, result_faeture_name=str)
+        create a mimmax time series scaled feature of a given feature
     relative_spread_MA(ma1=int, ma2=int, threshold=float, plot=boolean, save_features=boolean):
         perform relative moving average features, one for short term and another for long/mid term
     pair_feature(pair_symbol=str, plot=boolean):
@@ -1455,6 +1457,22 @@ class stock_eda_panel(object):
         if max_window:
             self.df[result_feature_name] = self.df[result_feature_name].clip(0,max_window)
         self.df = self.df.drop(columns = ["Date_pivot"])
+
+    def min_max_window_ts_scaler_feature(self, window, feature, result_faeture_name):
+        """
+        create a mimmax time series scaled feature of a given feature
+        
+        :param window: window size for min max
+        :param feature: feature to transform
+        :param result_faeture_name: expected feature name
+        """
+        feature_name = result_faeture_name if result_faeture_name else f"{feature}_minmax_scaled_{window}"
+        # tmp feat names
+        min_, max_ = f"min_{feature_name}", f"max_{feature_name}"
+        self.df[min_] = self.df.sort_values("Date")[feature].rolling(window, min_periods=2).min()
+        self.df[max_] = self.df.sort_values("Date")[feature].rolling(window, min_periods=2).max()
+        self.df[feature_name] = (self.df[feature] - self.df[min_])/(self.df[max_] - self.df[min_])
+        self.df = self.df.drop(columns=[min_,max_])
 
     def pair_index_feature(self, pair_symbol, feature_label,threshold, window = None,ta_method='ROC',param_set=False,plot = False, save_features = False):
         """
