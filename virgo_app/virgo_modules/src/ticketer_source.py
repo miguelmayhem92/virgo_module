@@ -2084,6 +2084,33 @@ class stock_eda_panel(object):
 
         self.settings_target_lasts = {'horizon':horizon, 'flor_loss':flor_loss, 'top_gain':top_gain, 'type': 'classification'}
 
+    def filter_targets_given_signal(self, order_col_list, col_target, type):
+        """
+        this function filters or cleans targets given a signal list
+
+                Parameters:
+                        data (pd.DataFrame): dataset
+                        order_col_list (list): list of features that are order features 1,2,3 or -1-2-3 to clean target
+                        col_target (str): target column name
+                        type (str): 'plus' or 'minus'
+        
+                Returns:
+                        data (int): dataset with filtered target
+        
+        """
+        prefix = 'tmp_'
+        for c in order_col_list:
+            if type == 'minus':
+                self.df[prefix + c] = np.where(self.df[c] < 0, 1,0)
+            elif type == 'plus':
+                self.df[prefix + c] = np.where(self.df[c] > 0, 1,0)
+                
+        tmp_cols = [prefix + c for c in order_col_list]
+        self.df['signal_group'] = self.df[tmp_cols].sum(axis = 1)
+        self.df[col_target] = np.where(self.df['signal_group'] > 0, self.df[col_target], 0)
+        drop_cols = ['signal_group'] + tmp_cols
+        self.df = self.df.drop(columns = drop_cols )
+    
     def get_configurations(self,test_data_size =250, val_data_size = 250, model_type = False):
         """
         produce configuration dictionary that were saved in the feature generation methods if save_features was activated
