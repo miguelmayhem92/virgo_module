@@ -29,6 +29,7 @@ import mlflow
 
 from pykalman import KalmanFilter
 from .aws_utils import upload_file_to_aws
+from .markowitz.markowitz_utils import MarkowitzOptimizer
 
 def calculate_cointegration(series_1, series_2):
     '''
@@ -1387,7 +1388,7 @@ def plot_hmm_tsanalysis_logger(data_frame, test_data_size,save_path = False, sho
     if not show_plot:
         plt.close()
 
-def extract_data_traintest(object_stock,features_to_search,configs, target_configs, window_analysis = False, drop_nan= True):
+def sirius_extract_data_traintest(object_stock,features_to_search,configs, target_configs, window_analysis = False, drop_nan= True):
     '''
     code snippet that execute object_stock or stock_eda_panel to get features
 
@@ -1432,6 +1433,10 @@ def extract_data_traintest(object_stock,features_to_search,configs, target_confi
             method_to_use = market_interaction_features.get(stage).get("method")
             arguments_to_use = market_interaction_features.get(stage).get("parameters")
             getattr(object_stock, method_to_use)(**arguments_to_use)
+    for scale_config in configs["ts_scaled_features"]:
+            object_stock.min_max_window_ts_scaler_feature(**scale_config)
+    for context_config in configs["rolling_features_context"]:
+            object_stock.rolling_feature(**context_config)
     # geting targets
     object_stock.get_categorical_targets(**target_params_up)
     object_stock.df = object_stock.df.drop(columns = ['target_down']).rename(columns = {'target_up':'target_up_save'})
@@ -1442,7 +1447,65 @@ def extract_data_traintest(object_stock,features_to_search,configs, target_confi
         object_stock.df = object_stock.df.dropna()
     if window_analysis:
         object_stock.df = object_stock.df.iloc[-window_analysis:,:]
+    
+    ## some data corrections
+    try:
+        object_stock.df["dow"] = object_stock.df["dow"].astype(int)
+    except:
+        pass
         
+    return object_stock
+
+def allocator_extract_data_traintest(object_stock, asset_name, configs):
+    configs = configs["extraction"]
+    object_stock.get_data()
+    #produce features
+    for al in configs["asset_lags"]:
+        object_stock.lag_log_return(lags = al, feature="Close", feature_name=f"asset_{al}_logreturn")
+        object_stock.produce_log_volatility(trad_days=al,feature=f"asset_{al}_logreturn",feature_name=f"asset_{al}_volatility")
+
+    # produce targets
+    future_returns_cols = list()
+    trasher = list()
+    
+    for tc in configs["taget_config"]:
+        symbol = tc.get("symbol",False)
+        col_name = tc.get("col_name",False)
+        tag = tc.get("tag")
+        if symbol:
+            object_stock.extract_sec_data(symbol, ["Date","Close","Volume"], {"Close":tag, "Volume":f"Volume_{tag}"})
+            # trasher.append(tag)
+        if col_name:
+            object_stock.lag_log_return(lags = configs["lags_target"], feature=col_name, feature_name=f"{tag}_past_return")
+            object_stock.expected_return(configs["window_expected_ret"], "Close", f"{tag}_future_return")
+        else:
+            object_stock.lag_log_return(lags = configs["lags_target"], feature=tag, feature_name=f"{tag}_past_return")
+            lag_ = 7
+            object_stock.produce_log_volatility(trad_days=lag_,feature=f"{tag}_past_return",feature_name=f"{tag}_{lag_}_volatility")
+            object_stock.expected_return(configs["window_expected_ret"], tag, f"{tag}_future_return")
+        # object_stock.df[f"{tag}_future_return"] = object_stock.df[f"{tag}_past_return"].shift(-lags_target)
+        future_returns_cols.append(f"{tag}_future_return")
+        trasher.append(f"{tag}_past_return")
+    mo = MarkowitzOptimizer(object_stock.df, future_returns_cols, window_cov = configs["window_cov"])
+    result_df = mo.execute_markowitz()
+    result_df = result_df[["Date"]+[x for x in result_df.columns if "optimal_" in x]]
+    object_stock.df = object_stock.df.merge(result_df, on=["Date"], how = "left")
+    object_stock.df["asset"] = asset_name
+    object_stock.df = object_stock.df.drop(columns=trasher+future_returns_cols)
+    # other features
+    # get feature from config
+    for config_roll in configs["rolling_features"]:
+        feature_input, roll_lag, roll_tag = config_roll.get("feature_input"), config_roll.get("lag"), config_roll.get("tag")
+        object_stock.rolling_feature(feature_input, roll_lag, "min")
+        object_stock.rolling_feature(feature_input, roll_lag, "max")
+        object_stock.time_distance(feature_input,f"{feature_input}_{roll_lag}_max", f"{roll_tag}_{roll_lag}_time_to_max")
+        object_stock.time_distance(feature_input,f"{feature_input}_{roll_lag}_min", f"{roll_tag}_{roll_lag}_time_to_min")
+    ## new block
+    for scale_config in configs["ts_scaled_features"]:
+        object_stock.min_max_window_ts_scaler_feature(**scale_config)
+    for context_config in configs["rolling_features_context"]:
+        object_stock.rolling_feature(**context_config)
+
     return object_stock
 
 def produce_simple_ts_from_model(stock_code, configs, n_days = 2000 , window_scope = '5y'):
