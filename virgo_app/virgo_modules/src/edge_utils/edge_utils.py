@@ -192,7 +192,6 @@ class register_results():
             for metric in self.metric_logger[val]:
                 print(stage, metric,self.metric_logger[val][metric])
 
-
 def eval_metrics(pipeline, X, y, type_data, model_name):
     '''
     print metrics from a model pipeline
@@ -221,87 +220,6 @@ def eval_metrics(pipeline, X, y, type_data, model_name):
     print(precision_score(y,preds, average=None))
     print('--recall--')
     print(recall_score(y,preds, average=None))
-
-
-def data_processing_pipeline_classifier(
-        features_base,features_to_drop = False, winsorizer_conf = False, discretize_columns = False,
-        bins_discretize = 10, correlation = 0.85, fillna = True,
-        invhypervolsin_features = False,
-        date_features_list = False,
-        entropy_set_list = False,
-        interaction_features_cont = False,
-        spline_regression_config = False,
-        pipeline_order = 'selector//winzorizer//discretizer//median_inputer//drop//correlation'
-        ):
-
-    '''
-    pipeline builder
-
-            Parameters:
-                    features_base (list): model pipeline
-                    features_to_drop (list): features to drop list
-                    winsorizer_conf (dict): winsorising configuration dictionary
-                    discretize_columns (list): feature list to discretize
-                    bins_discretize (int): number of bins to discretize
-                    correlation (float): correlation threshold to discard correlated features
-                    fillna (boolean): if true to fill na features
-                    invhypervolsin_features (list): list of features to apply inverse hyperbolic sine
-                    date_features_list (list): list of features to compute from Date field. (list of features from feature_engine)
-                    entropy_set_list (list): list of dictionaries that contains features and targets to compute entropy
-                    interaction_features_cont (tuple): tuple of lists of interaction features
-                    pipeline_order (str): custom pipeline order eg. selector//winzorizer//discretizer//median_inputer//drop//correlation
-            Returns:
-                    pipe (obj): pipeline object
-    '''
-    select_pipe = [('selector', FeatureSelector(features_base))] if features_base else []
-    winzorizer_pipe = [('winzorized_features', VirgoWinsorizerFeature(winsorizer_conf))] if winsorizer_conf else []
-    drop_pipe = [('drop_features' , DropFeatures(features_to_drop=features_to_drop))] if features_to_drop else []
-    discretize = [('discretize',EqualWidthDiscretiser(discretize_columns, bins = bins_discretize ))] if discretize_columns else []
-    drop_corr = [('drop_corr', DropCorrelatedFeatures(threshold=correlation, method = 'spearman'))] if correlation else []
-    median_imputer_pipe = [('median_imputer', MeanMedianImputer())] if fillna else []
-    invhypersin_pipe = [('invhypervolsin scaler', InverseHyperbolicSine(features = invhypervolsin_features))] if invhypervolsin_features else []
-    datetimeFeatures_pipe = [('date features', DatetimeFeatures(features_to_extract = date_features_list, variables = 'Date', drop_original = False))] if date_features_list else []
-    interaction_features = [("interaction features", InteractionFeatures(interaction_features_cont[0], interaction_features_cont[1]))] if interaction_features_cont else []
-    spline_features = [("spline features", SplineMarketReturnJumpWaves(
-        return_feature_names=spline_regression_config.get("return_feature_names"),
-        target_variables=spline_regression_config.get("target_variables"),
-        feature_label=spline_regression_config.get("feature_label"),
-    ))] if spline_regression_config else []
-
-    entropy_pipe = list()
-    if entropy_set_list:
-        for setx_ in entropy_set_list:
-            setx = setx_['set'].split('//')
-            target_ = setx_['target']
-            subpipe_name = '_'.join(setx) + 'entropy'
-            entropy_pipe.append((subpipe_name, FeaturesEntropy(features = setx, target = target_)))
-    
-    pipe_dictionary = {
-        'selector': select_pipe,
-        'winzorizer':winzorizer_pipe,
-        'drop':drop_pipe,
-        'discretizer': discretize,
-        'correlation': drop_corr,
-        'median_inputer':median_imputer_pipe,
-        'arcsinh_scaler': invhypersin_pipe,
-        'date_features': datetimeFeatures_pipe,
-        'interaction_features': interaction_features,
-        'entropy_features' : entropy_pipe,
-        "spline_features": spline_features,
-    }
-
-    pipeline_steps = pipeline_order.split('//')
-    ## validation
-    for step in pipeline_steps:
-        if step not in pipe_dictionary.keys():
-            raise Exception(f'{step} step not in list of steps, the list is: {list(pipe_dictionary.keys())}')
-        
-    pipeline_args = [ pipe_dictionary[step] for step in pipeline_steps]
-    pipeline_args = list(itertools.chain.from_iterable(pipeline_args))
-    pipe = Pipeline(pipeline_args)
-
-    return pipe
-
 
 class ExpandingMultipleTimeSeriesKFold:
     """

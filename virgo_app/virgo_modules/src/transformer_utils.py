@@ -1,11 +1,16 @@
 import gc
 
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.pipeline import Pipeline
 import pandas as pd
 import numpy as np
 import statsmodels.api as sm
 from patsy import dmatrix
 import matplotlib.pyplot as plt
+
+from feature_engine.encoding import OneHotEncoder
+from feature_engine.discretisation import EqualFrequencyDiscretiser
+from feature_engine.transformation import LogCpTransformer
 
 class InverseHyperbolicSine(BaseEstimator, TransformerMixin):
 
@@ -254,7 +259,6 @@ class signal_combiner(BaseEstimator, TransformerMixin):
         return X
     
 class InteractionFeatures(BaseEstimator, TransformerMixin):
-
     """
     Class that applies feature interaction.
     this class is compatible with scikitlearn pipeline
@@ -426,3 +430,80 @@ class SmartDropFeatures(BaseEstimator, TransformerMixin):
     def transform(self, X, y=None):
         drop_list = [x for x in self.columns if x in X.columns]
         return X.drop(columns = drop_list)
+
+class SmartDiscretizer(BaseEstimator, TransformerMixin):
+    """
+    Class that applies discretizer based on true values distribution during fit and then onehot encoding of the same variable
+    
+    Attributes
+    ----------
+    q : int
+        number of bins or splits
+    feature: str
+        feature name to apply transformation
+    target: str
+        target name to apply filtering
+
+    Methods
+    -------
+    fit(additional="", X=DataFrame, y=None):
+        fit transformation.
+    transform(X=DataFrame, y=None):
+        apply feature transformation
+    """
+    def __init__(self, q, feature, target):
+        self.q = q
+        self.feature = feature
+        self.target = target
+
+    def fit(self, X, y=None):
+        ycols = y.columns
+        X_y = pd.concat([X,y], axis=1)
+        self.inner_pipe = Pipeline([
+            ("dicrete",EqualFrequencyDiscretiser(q=self.q, variables=self.feature,return_object=True)),
+            ("onehot", OneHotEncoder(variables=self.feature,ignore_format=True))
+        ])
+        self.inner_pipe.fit(X_y[X_y[self.target]==1].drop(columns=ycols))
+        return self
+
+    def transform(self, X, y=None):
+        X=self.inner_pipe.transform(X)
+        return X
+    
+class SmartLogScaling():
+    """
+    Class that applies log scaling and error with negatives or zeros
+    
+    Attributes
+    ----------
+    q : int
+        number of bins or splits
+    feature: str
+        feature name to apply transformation
+    target: str
+        target name to apply filtering
+
+    Methods
+    -------
+    fit(additional="", X=DataFrame, y=None):
+        fit transformation.
+    transform(X=DataFrame, y=None):
+        apply feature transformation
+    """
+    def __init__(self, feature, overwrite_var=False):
+        self.feature = feature
+        self.overwrite_var = overwrite_var
+
+        self.new_feature_name = self.feature if overwrite_var else f"log_{self.feature}"
+    def fit(self, X, y=None):
+        return self
+    
+    def transform(self, X, y=None):
+        X["sign"] = np.sign(X[self.feature])
+        X[self.new_feature_name] = np.log(np.abs(X[self.feature]))
+        X[self.new_feature_name] = np.nan_to_num(np.log(X[self.feature]), neginf=0)
+        X[self.new_feature_name] = X[self.new_feature_name] * X["sign"]
+        X = X.drop(columns=["sign"])
+        return X
+
+    
