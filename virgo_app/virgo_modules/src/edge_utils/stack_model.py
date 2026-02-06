@@ -33,6 +33,7 @@ class MyStackingClassifierMultiClass(ClassifierMixin, BaseEstimator):
         base_y = y[y.index.get_level_values('i').isin(indexes)]
         classifier.fit(base_X, base_y)
     def fit(self, X, y):
+        self.classes_ = list(np.unique(y))
         # #base learners
         base_indexes, meta_indexes = self.get_index_training(X)
         for name,estimator in self.estimators:

@@ -506,4 +506,35 @@ class SmartLogScaling():
         X = X.drop(columns=["sign"])
         return X
 
+class DuplicatorTransformer():
+    """
+    duplicates a feature
+    
+    Attributes
+    ----------
+    q : int
+        number of bins or splits
+    feature: str
+        feature name to apply transformation
+    target: str
+        target name to apply filtering
+
+    Methods
+    -------
+    fit(additional="", X=DataFrame, y=None):
+        fit transformation.
+    transform(X=DataFrame, y=None):
+        apply feature transformation
+    """
+    def __init__(self, features, suffix="_copy"):
+        self.feature = features
+        self.suffix = suffix
+
+    def fit(self, X, y=None):
+        return self
+    
+    def transform(self, X, y=None):
+        for feature in self.features:
+            X[f"{feature}{self.suffix}"] = X[feature]
+        return X
     
