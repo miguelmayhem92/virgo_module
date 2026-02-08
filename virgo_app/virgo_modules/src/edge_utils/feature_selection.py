@@ -52,6 +52,10 @@ class StackRFE:
                 
             if len(self.manual_pipe)>0:
                 batch_features = self.manual_pipe.pop(0)
+                batch_features_copy = batch_features.copy()
+                batch_features = [x for x in batch_features if x in features]
+                if len(batch_features) == 0:
+                    raise Exception(f"{batch_features_copy} is completly purged") 
             # selector and elimination
             tmp_feature_ranking = {k: list() for k in batch_features}
             selector = RFE(self.model, n_features_to_select=self.n_features, step=self.step_elim, importance_getter=self.importance_callable)
