@@ -22,8 +22,13 @@ class MarkowitzOptimizer:
 
         for i in range(self.window_cov,len(self.data_)):
             self.returns = self.data_.iloc[i][self.return_cols].values
+            self.returns[self.returns == -np.inf] = 0.0001
+            self.returns[self.returns == +np.inf] = 0.0001
+            df_input_cov = self.data_.iloc[i-self.window_cov:i,:][self.return_cols]
+            df_input_cov.replace([np.inf, -np.inf], np.nan, inplace=True)
+            df_input_cov = df_input_cov.fillna(0.0001)
             self.cov = risk_matrix(
-                prices=self.data_.iloc[i-self.window_cov:i,:][self.return_cols],
+                prices=df_input_cov,
                 returns_data=True,
                 method="sample_cov"
             )
