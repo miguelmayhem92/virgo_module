@@ -6,14 +6,14 @@ from pypfopt.efficient_frontier import EfficientFrontier
 
 
 class MarkowitzOptimizer:
-    def __init__(self, data, return_cols, window_cov=10, max_quadratic=False):
+    def __init__(self, data, return_cols, window_cov=10, frontier_mode=None):
         self.data_ = data[["Date"]+return_cols].dropna().sort_values("Date").copy()
         self.window_cov = window_cov
         self.return_cols = return_cols
         self.n_features = len(return_cols)
-        self.max_quadratic = max_quadratic
+        self.frontier_mode = frontier_mode
         
-    def execute_markowitz(self):
+    def execute_markowitz(self,rf=0.0000001, clip_negative_returns=0.00001):
         cons = {'type':'eq','fun':self._check_sum}
         bounds = tuple((0,1) for _ in range(self.n_features))  # weights bounds
         init_guess = [1/self.n_features for _ in range(self.n_features)] ## initial guess of weiths
@@ -32,15 +32,23 @@ class MarkowitzOptimizer:
                 returns_data=True,
                 method="sample_cov"
             )
-            if not self.max_quadratic:
-                opt_results = optimize.minimize(self._neg_sr, init_guess, constraints=cons, bounds=bounds, method='SLSQP')
-                optimal_weights = opt_results.x
-            else:
-                # max quadratic will return weights from -1 to 1 (short and long)
-                ef = EfficientFrontier(self.returns, self.cov)
-                weights = ef.max_quadratic_utility(risk_aversion=1,market_neutral=True)
-                weights = dict(weights)
-                optimal_weights = weights.values()
+            match self.frontier_mode:
+                case None:
+                    opt_results = optimize.minimize(self._neg_sr, init_guess, constraints=cons, bounds=bounds, method='SLSQP')
+                    optimal_weights = opt_results.x
+                case "max_quadratic":
+                    ef = EfficientFrontier(self.returns, self.cov)
+                    weights = ef.max_quadratic_utility(risk_aversion=1,market_neutral=True)
+                    weights = dict(weights)
+                    optimal_weights = weights.values()
+                case "max_sharpe":
+                    ef = EfficientFrontier(self.returns.clip(clip_negative_returns), self.cov)
+                    weights = ef.max_sharpe(risk_free_rate=rf)
+                    weights = dict(weights)
+                    optimal_weights = weights.values()
+                case _:
+                    raise Exception("no method defined")
+
             self.data_.iloc[i,-self.n_features:] = [float(x) for x in optimal_weights]
             
         self.data_[feature_result_names] = self.data_[feature_result_names].astype(float).round(6) 
