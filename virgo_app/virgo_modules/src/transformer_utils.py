@@ -12,6 +12,8 @@ from feature_engine.encoding import OneHotEncoder
 from feature_engine.discretisation import EqualFrequencyDiscretiser
 from feature_engine.transformation import LogCpTransformer
 
+from tsfresh.feature_extraction import feature_calculators 
+
 class InverseHyperbolicSine(BaseEstimator, TransformerMixin):
 
     """
@@ -537,4 +539,53 @@ class DuplicatorTransformer():
         for feature in self.features:
             X[f"{feature}{self.suffix}"] = X[feature]
         return X
+
+class MyTsTransformer(BaseEstimator, TransformerMixin):
+
+    """
+    Class that applies inverse hyperbolic sine for feature transformation.
+    this class is compatible with scikitlearn pipeline
+
+    Attributes
+    ----------
+    features : list
+        list of features to apply the transformation
+    prefix : str
+        prefix for the new features. is '' the features are overwrite
+
+    Methods
+    -------
+    fit(additional="", X=DataFrame, y=None):
+        fit transformation.
+    transform(X=DataFrame, y=None):
+        apply feature transformation
+    """
+
+    def __init__(self, feature_base:str, func_config:dict):
+        self.feature_base = feature_base
+        self.func_config = self._sort_config_items(func_config)
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X, y=None):
+        for func_name,config in self.func_config.items():
+            func_name = func_name.split("__")[1]
+            args = config.get("args",{})
+            base_window = config["base_window"]
+            result_feature_name = config["result_feature_name"]
+            udf_func = lambda x: getattr(feature_calculators, func_name)(x, **args)  # noqa: E731
+            X[result_feature_name] = (
+                X.sort_values("Date").groupby('asset')[self.feature_base]
+                .rolling(base_window).apply(udf_func, raw=True)
+                .reset_index(level=0, drop=True)
+            )
+        return X
+    
+    @staticmethod
+    def _sort_config_items(config:dict)->dict:
+        pairs = [(int(x.split("__")[0]), x) for x in list(config.keys())]
+        sorted_pairs = sorted(pairs, key=lambda x: x[0])
+        sorted_pairs = [x[1] for x in sorted_pairs]
+        return {k:config[k] for k in sorted_pairs}.copy()
     

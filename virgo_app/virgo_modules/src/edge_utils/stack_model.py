@@ -28,16 +28,24 @@ class MyStackingClassifierMultiClass(ClassifierMixin, BaseEstimator):
         else:
             raise Exception("error", self.stack_size, self.perc)
         return base_indexes, meta_indexes
-    def train_base_learner(self, classifier, X, y,indexes):
+    
+    def train_base_learner(self, classifier, X, y,indexes, sample_weight=None):
         base_X = X[X.index.get_level_values('i').isin(indexes)]
         base_y = y[y.index.get_level_values('i').isin(indexes)]
-        classifier.fit(base_X, base_y)
-    def fit(self, X, y):
+        sample_weight_list = None
+        if sample_weight:
+            sample_weight_list = list()
+            for sample_i in sample_weight:
+                weights = sample_i[sample_i.index.get_level_values('i').isin(indexes)]
+                sample_weight_list.append(weights)
+        classifier.fit(base_X, base_y, sample_weight = sample_weight_list)
+
+    def fit(self, X, y, sample_weight=np.nan):
         self.classes_ = list(np.unique(y))
         # #base learners
         base_indexes, meta_indexes = self.get_index_training(X)
         for name,estimator in self.estimators:
-            self.train_base_learner(estimator,X, y, base_indexes)
+            self.train_base_learner(estimator,X, y, base_indexes, sample_weight=sample_weight)
     
         #stack meta learner
         metas_pred = dict()

@@ -59,7 +59,7 @@ class produce_model_wrapper:
         """
         self.data = data.copy()
     
-    def preprocess(self, validation_size, target):
+    def preprocess(self, validation_size:int, target, sample_weiths_col_name:list=None):
         """
         ingest data and split data between train and validation data and X and Y data
 
@@ -84,6 +84,12 @@ class produce_model_wrapper:
         self.y_train = y_train
         self.X_val = X_val
         self.y_val = y_val
+        self.sample_weight = None
+        if sample_weiths_col_name:
+            collector_classes = list()
+            for i in sample_weiths_col_name:
+                collector_classes.append(train_data[i])
+            self.sample_weight = collector_classes
     
     def train_model(self, pipe, model, cv_ = False):
         """
