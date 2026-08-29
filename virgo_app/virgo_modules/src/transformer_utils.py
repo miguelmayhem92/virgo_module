@@ -472,7 +472,7 @@ class SmartDiscretizer(BaseEstimator, TransformerMixin):
         X=self.inner_pipe.transform(X)
         return X
     
-class SmartLogScaling():
+class SmartLogScaling(BaseEstimator, TransformerMixin):
     """
     Class that applies log scaling and error with negatives or zeros
     
@@ -508,7 +508,7 @@ class SmartLogScaling():
         X = X.drop(columns=["sign"])
         return X
 
-class DuplicatorTransformer():
+class DuplicatorTransformer(BaseEstimator, TransformerMixin):
     """
     duplicates a feature
     
@@ -588,4 +588,37 @@ class MyTsTransformer(BaseEstimator, TransformerMixin):
         sorted_pairs = sorted(pairs, key=lambda x: x[0])
         sorted_pairs = [x[1] for x in sorted_pairs]
         return {k:config[k] for k in sorted_pairs}.copy()
+
+
+class MinMaxScalerTs(BaseEstimator, TransformerMixin):
+    """
+    duplicates a feature
     
+    Attributes
+    ----------
+    q : int
+        number of bins or splits
+    feature: str
+        feature name to apply transformation
+    target: str
+        target name to apply filtering
+
+    Methods
+    -------
+    fit(additional="", X=DataFrame, y=None):
+        fit transformation.
+    transform(X=DataFrame, y=None):
+        apply feature transformation
+    """
+    def __init__(self, feature_input, feature_max, feature_min, result_feature_name):
+        self.feature_input = feature_input
+        self.feature_max = feature_max
+        self.feature_min = feature_min
+        self.result_feature_name = result_feature_name
+
+    def fit(self, X, y=None):
+        return self
+    
+    def transform(self, X, y=None):
+        X[self.result_feature_name] = (X[self.feature_input] - X[self.feature_min])/(X[self.feature_max] - X[self.feature_min])
+        return X
