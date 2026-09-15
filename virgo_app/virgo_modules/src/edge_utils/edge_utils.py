@@ -227,6 +227,7 @@ def eval_metrics(pipeline, X, y, type_data, model_name):
     print('--recall--')
     print(recall_score(y,preds, average=None))
 
+
 class ExpandingMultipleTimeSeriesKFold:
     """
     class that creates a custom cv schema that is compatible with sklearn cv arguments.
@@ -304,6 +305,12 @@ class ExpandingMultipleTimeSeriesKFold:
             raise Exception('test size is higher than the data length')
 
         cut = total_test_size
+
+        if self.sample_parts:
+            to_keep, to_drop = self._get_parts()
+            part_col = self.sample_parts.get("partition", "asset")
+            iterate_part = self.sample_parts.get("iterate", False)
+
         for fold in range(self.number_window):
             
             topcut = cut-self.window_size
@@ -319,19 +326,25 @@ class ExpandingMultipleTimeSeriesKFold:
             cut = cut - (self.window_size - self.overlap_size)
 
             if self.sample_parts:
-                sample_part = self.sample_parts[0]
-                part_col = self.sample_parts[1]
-                unique_parts = list(self.df.index.get_level_values(part_col).unique())
-                random.shuffle(unique_parts)
-                n_select = math.ceil(len(unique_parts)*sample_part)
-                to_drop = unique_parts[0:n_select]
+                if iterate_part:
+                    to_keep, to_drop = self._get_parts()
                 train_index = self.df[
                     (self.df.index.get_level_values('Date_i') <= max_train_date) 
                     & 
-                    (~self.df.index.get_level_values(part_col).isin(to_drop))].index.get_level_values('i')
+                    (~self.df.index.get_level_values(part_col).isin(to_keep))].index.get_level_values('i')
+                test_index = self.df[
+                    (self.df.index.get_level_values('Date_i') >= min_test_date)
+                    & 
+                    (self.df.index.get_level_values('Date_i') <= max_test_date)
+                    &
+                    (self.df.index.get_level_values(part_col).isin(to_drop))
+                    ].index.get_level_values('i')
             else:
                 train_index = self.df[self.df.index.get_level_values('Date_i') <= max_train_date].index.get_level_values('i')
-            test_index = self.df[(self.df.index.get_level_values('Date_i') >= min_test_date) & (self.df.index.get_level_values('Date_i') <= max_test_date)].index.get_level_values('i')
+                test_index = self.df[
+                    (self.df.index.get_level_values('Date_i') >= min_test_date)
+                    & 
+                    (self.df.index.get_level_values('Date_i') <= max_test_date)].index.get_level_values('i')
         
             yield train_index, test_index
 
@@ -350,6 +363,18 @@ class ExpandingMultipleTimeSeriesKFold:
         number_window (int): number of splits
         """
         return self.number_window
+
+    def _get_parts(self):
+        sample_part = self.sample_parts.get("sample_keep", 1.0)
+        part_col = self.sample_parts.get("partition", "asset")
+        overlap = self.sample_parts.get("overlap", 0)
+        unique_parts = list(self.df.index.get_level_values(part_col).unique())
+        random.shuffle(unique_parts)
+        n_select = math.ceil(len(unique_parts)*sample_part)
+        n_overlap = math.ceil(len(unique_parts)*overlap)
+        to_keep = unique_parts[0:n_select]
+        to_drop = unique_parts[(n_select - n_overlap):]
+        return to_keep, to_drop
     
 def edge_probas_lines(data, threshold, plot = False, look_back = 750):
     """
