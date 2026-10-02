@@ -622,3 +622,21 @@ class MinMaxScalerTs(BaseEstimator, TransformerMixin):
     def transform(self, X, y=None):
         X[self.result_feature_name] = (X[self.feature_input] - X[self.feature_min])/(X[self.feature_max] - X[self.feature_min])
         return X
+
+class MySmartLag(BaseEstimator, TransformerMixin):
+    def __init__(self, config):
+        self.config = config
+
+    def fit(self, X, y=None):
+            return self
+
+    def transform(self, X, y=None):
+        for feature_name, lags in self.config.items():
+            for lag in lags:
+                feature_name_result = f"{feature_name}_{lag}_lag_skpipe"
+                X[feature_name_result] = (
+                    X.sort_values("Date").groupby('asset')[feature_name]
+                    .shift(lag)
+                    .bfill()
+                )
+        return X
