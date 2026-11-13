@@ -643,13 +643,16 @@ class MySmartLag(BaseEstimator, TransformerMixin):
 
 
 class PartialDifferentiation(BaseEstimator, TransformerMixin):
-    def __init__(self, apply_on:str, d:float, threshold:float, apply_log:bool=True, drop_apply_on:bool=True):
+    def __init__(self, apply_on:str, d:float, threshold:float, 
+                 apply_log:bool=True, drop_apply_on:bool=True,
+                 result_feature_name:str="frac_diff"):
         self.apply_on = apply_on
         self.d = d
         self.threshold = threshold
         self.apply_log = apply_log
         self.drop_apply_on = drop_apply_on
-
+        self.result_feature_name = result_feature_name
+        
     def fit(self, X, y=None):
         self.weigh_matrix = self._get_vector()
         self.weigh_width = len(self.weigh_matrix)
@@ -661,7 +664,7 @@ class PartialDifferentiation(BaseEstimator, TransformerMixin):
         if self.apply_log:
             X["apply_on"] = np.log(X["apply_on"])
 
-        X["frac_diff"] = (
+        X[self.result_feature_name] = (
             X.groupby("asset", group_keys=False)["apply_on"]
             .transform(self._frac_diff)
         )
