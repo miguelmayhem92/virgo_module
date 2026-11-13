@@ -640,3 +640,53 @@ class MySmartLag(BaseEstimator, TransformerMixin):
                     .bfill()
                 )
         return X
+
+
+class PartialDifferentiation(BaseEstimator, TransformerMixin):
+    def __init__(self, apply_on:str, d:float, threshold:float, apply_log:bool=True, drop_apply_on:bool=True):
+        self.apply_on = apply_on
+        self.d = d
+        self.threshold = threshold
+        self.apply_log = apply_log
+        self.drop_apply_on = drop_apply_on
+
+    def fit(self, X, y=None):
+        self.weigh_matrix = self._get_vector()
+        self.weigh_width = len(self.weigh_matrix)
+        return self
+
+    def transform(self, X, y=None):
+        X = X.sort_values("Date")
+        X["apply_on"] = X[self.apply_on]
+        if self.apply_log:
+            X["apply_on"] = np.log(X["apply_on"])
+
+        X["frac_diff"] = (
+            X.groupby("asset", group_keys=False)["apply_on"]
+            .transform(self._frac_diff)
+        )
+        X = X.drop(columns=["apply_on"])
+        if self.drop_apply_on:
+            X = X.drop(columns=[self.apply_on])
+        return X
+
+    def _frac_diff(self, s: pd.Series) -> pd.Series:
+        w = self.weigh_matrix.ravel()
+        return s.rolling(self.weigh_width, min_periods=self.weigh_width).apply(
+            lambda x: np.dot(w, x), raw=True
+        )
+    
+    def _get_vector(self):
+        """
+        no matter the time seires
+        the vector does not change
+        """
+        w = [1.0]
+        k = 1
+        while True:
+            w_ = -w[-1] * (self.d - k + 1) / k
+            if abs(w_) < self.threshold:
+                break
+            w.append(w_)
+            k += 1
+        return np.array(w[::-1]).reshape(-1, 1)
